@@ -1,0 +1,25 @@
+{
+  "name": "@bunsvr/router",
+  "version": "0.0.8",
+  "repository": {
+    "url": "https://github.com/bunsvr/router"
+  },
+  "main": "index.js",
+  "devDependencies": {
+    "bun-types": "^0.4.0",
+    "esbuild": "^0.16.10",
+    "typescript": "^4.9.4",
+    "trouter": "^3.2.0",
+    "@bunsvr/core": "^0.0.8"
+  },
+  "description": "Bunsvr router support",
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --format=esm --minify --external:bun --outfile=index.js && tsc --declaration --outDir types --emitDeclarationOnly"
+  },
+  "type": "module",
+  "types": "types/index.d.ts",
+  "typedoc": {
+    "entryPoint": "./src/index.ts",
+    "displayName": "@bunsvr/router"
+  }
+}
