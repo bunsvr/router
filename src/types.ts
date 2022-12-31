@@ -31,10 +31,7 @@ export interface Handler<App, RequestData = any> {
     path: Pattern;
 
     /**
-     * Run the route handler
-     * @param this The current app
-     * @param request The current request
-     * @param server The current server
+     * All route handler functions
      */
     run: HandlerFunction<App, RequestData> | HandlerFunction<App, RequestData>[];
 }
