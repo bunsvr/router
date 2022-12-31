@@ -48,3 +48,4 @@ class Router<App extends CoreApp, RequestData> {
 }
 
 export { Router };
+export * from "./types";
