@@ -23,7 +23,7 @@ export interface Handler<App, RequestData = any> {
     /**
      * Target request method
      */
-    method: Methods | Methods[];
+    method?: Methods | Methods[];
 
     /**
      * Target path
