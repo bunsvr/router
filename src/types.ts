@@ -13,7 +13,7 @@ export interface HandlerFunction<App, RequestData = any> {
      * @param server The current server
      * @param params The parsed params
      */
-    (this: App, request: AppRequest<RequestData>, server: Server, params: Record<string, string>): Promise<any>;
+    (this: App, request: AppRequest<RequestData>, server: Server, params: Record<string, string>): Promise<any> | any;
 }
 
 /**

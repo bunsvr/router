@@ -1,3 +1,5 @@
+A router based on [Trouter](https://github.com/lukeed/trouter). Can be used as a BunSVR app middleware or served directly.
+```typescript
 import { Router } from "../..";
 
 const router = new Router();
@@ -8,13 +10,7 @@ router.use({
     run: () => new Response("Hello!"),
 });
 
-// Not found error
-router.use({
-    path: "*",
-    run(request) {
-        return new Response(`Cannot ${request.method} ${request.url}`, { status: 404 });
-    }
-})
-
 // Serve directly
 router.serve();
+```
+See the example [here](/assets/examples/index.ts).
