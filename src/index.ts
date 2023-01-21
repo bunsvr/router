@@ -80,7 +80,12 @@ class Router<App extends CoreApp, RequestData> {
      * @example http://localhost:3000
      * @param app 
      */
-    serve(app: Partial<ServeOptions> = {}) {
+    serve(app?: Partial<ServeOptions>) {
+        if (!app)
+            app = {};
+        if (!app.baseURI)
+            app.baseURI = "http://localhost:3000";
+
         const routes = routeFrom(this.handlers);
         const trailLen = app.baseURI.length;
         
