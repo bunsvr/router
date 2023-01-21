@@ -13,5 +13,5 @@ export interface HandlerFunction<App extends CoreApp = CoreApp, RequestData = an
      * @param server The current server
      * @param params The parsed params
      */
-    (this: App, request: AppRequest<RequestData>, server: Server, params?: Record<string, string>): Promise<any> | any;
+    (this: App, request: AppRequest<RequestData>, server: Server, params: string[]): Promise<any> | any;
 }

@@ -5,7 +5,6 @@ import { parse, pathToRegexp, Key } from "path-to-regexp";
 interface Route<App extends CoreApp, RequestData> {
     handlers: HandlerFunction<App, RequestData>[];
     method?: string;
-    tokens?: string[];
 }
 
 class Fouter<App extends CoreApp = CoreApp, RequestData = any> {
@@ -14,9 +13,6 @@ class Fouter<App extends CoreApp = CoreApp, RequestData = any> {
 
     staticRoutes: Record<string, Route<App, RequestData>>;
     regexRoutes: Map<RegExp, Route<App, RequestData>>;
-
-    // Pre-calculate keys
-    regexRoutesKeys: IterableIterator<RegExp>;
 
     constructor() {
         this.static = {};
@@ -28,16 +24,11 @@ class Fouter<App extends CoreApp = CoreApp, RequestData = any> {
     }
 
     match(method: string, path: string, ...handlers: HandlerFunction<App, RequestData>[]) {
-        const toks = parse(path);
-        toks.shift();
-
         this.regexp.set(pathToRegexp(path, undefined, {
             start: false,
             end: false,
         }), {
-            method, handlers, tokens: toks.map(
-                v => String((v as Key).name)
-            )
+            method, handlers
         });
     }
 
@@ -52,26 +43,20 @@ class Fouter<App extends CoreApp = CoreApp, RequestData = any> {
 
         const staticRoute = this.staticRoutes[path + method] || this.staticRoutes[path];
         if (!staticRoute) {
-            for (const regex of this.regexRoutesKeys) {
+            for (const [regex, o] of this.regexRoutes.entries()) {
                 const res = regex.exec(path);
-                if (res) {
-                    const current = this.regexRoutes.get(regex);
-
-                    const o = {};
-                    for (let i = 0; i < current.tokens.length; ++i)
-                        o[current.tokens[i]] = res[i + 1];
-
+                if (res && o.method === method) 
                     return {
-                        params: o,
-                        handlers: current.handlers
+                        params: res,
+                        handlers: o.handlers
                     }
-                }
             }
 
             return;
         }
         
         return {
+            params: [path],
             handlers: staticRoute.handlers
         };
     }
@@ -91,8 +76,6 @@ class Fouter<App extends CoreApp = CoreApp, RequestData = any> {
                 new RegExp(reg.source + regex.source + "$"), 
                 this.regexp.get(regex)
             );
-
-        this.regexRoutesKeys = this.regexRoutes.keys();
     }
 
     bind(app: App) {
