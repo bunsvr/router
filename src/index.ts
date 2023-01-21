@@ -1,97 +1,109 @@
-import { Methods } from "trouter";
 import { App as CoreApp } from "@bunsvr/core";
-import { Handler, HandlerFunction } from "./types";
-import Trouter from "trouter";
-import { ServeOptions, Server } from "bun";
-
-function routeFrom<App extends CoreApp, RequestData>(handlers: Handler<App, RequestData>[], app?: App) {
-    // Add to Trouter
-    const routes = new Trouter();     
-        
-    for (const handler of handlers) {
-        // Bind all handler functions to app object
-        let fns = (handler.run as HandlerFunction<App, RequestData>[])
-        if (app)
-            fns = fns.map(f => f.bind(app));
-
-        // No method provided
-        if (!handler.method[0])
-            handler.method = [""] as any;
-
-        // Method provided
-        for (const method of handler.method) 
-            routes.add(method as Methods, handler.path, ...fns);
-    }
-
-    return routes;
-}
-
-
-function handlerFrom(routes: Trouter, splitLen: number) {
-    return async (request: Request, server: Server) => {
-        const list = routes.find(request.method as Methods, request.url.slice(splitLen));
-        let res: Response;
-
-        for (const handler of list.handlers)
-            /** @ts-ignore */
-            if (res = await handler(request, server, list.params))
-                return res;
-    }
-}
+import { ServeOptions, Server, serve } from "bun";
+import Fouter from "./router";
+import { HandlerFunction } from "./types";
 
 /**
- * A Bunsvr router
+ * A BunSVR router
+ * 
+ * Note: This will run *only* the first route founded
  */
-class Router<App extends CoreApp, RequestData> {
-    /**
-     * @param app Target app
-     * @param handlers Handlers
-     */
-    constructor(private readonly handlers: Handler<App, RequestData>[] = []) {}
+class Router<App extends CoreApp = CoreApp, RequestData = any> {
+    private readonly router: Fouter<App, RequestData>;
 
-    /**
-     * Add a route handler
-     * @param handler 
-     */
-    use(handler: Handler<App, RequestData>) {
-        if (!Array.isArray(handler.run))
-            handler.run = [handler.run];
-        if (!Array.isArray(handler.method))
-            handler.method = [handler.method];
-
-        this.handlers.push(handler);
+    constructor() {
+        this.router = new Fouter();
     }
 
     /**
-     * Register the router as a middleware of the app
+     * Register a static route
+     * @param method The request method. "ALL" or "" means all request method
+     * @param path The request pathname
+     * @param handlers Route handlers
+     */
+    static(method: string | string[], path: string, ...handlers: HandlerFunction<App, RequestData>[]) {
+        if (method === "ALL")
+            method = "";
+        if (typeof method === "string")
+            method = [method];
+
+        for (const m of method)
+            this.router.add(m, path, ...handlers);
+    }
+
+    /**
+     * Register a dynamic route
+     * @param method The request method. "ALL" or "" means all request method
+     * @param path The request pathname
+     * @param handlers Route handlers
+     */
+    dynamic(method: string | string[], path: string, ...handlers: HandlerFunction<App, RequestData>[]) {
+        if (typeof method === "string")
+            method = [method];
+
+        for (const m of method)
+            this.router.match(m, path, ...handlers);
+    }
+
+    /**
+     * Register the router as a middleware of an app
+     * @param app The target app
      */
     register(app: App) {
-        const routes = routeFrom(this.handlers, app);
-        const trailLen = app.baseURI.length;
+        this.router.bind(app);
+        this.router.setBase(app.baseURI);
 
-        // Use as a middleware
-        app.use(handlerFrom(routes, trailLen));
+        app.use(async (req, server) => {
+            const o = this.router.find(req.method, req.url);
+
+            const hs = o.handlers as any[];
+
+            if (hs.length === 1)
+                return hs[0](req, server, o.params);
+        
+            let res: Response;
+            for (const handler of hs)
+                if (res = await handler(req, server, o.params))
+                    return res;
+        });
     }
 
     /**
-     * Directly serve an app
-     * 
-     * App need to have a correctly formatted baseURI (without trailing "/")
-     * @example http://localhost:3000
-     * @param app 
+     * Serve the router
+     * @param opts Serve options
      */
-    serve(app?: Partial<ServeOptions>) {
-        if (!app)
-            app = {};
-        if (!app.baseURI)
-            app.baseURI = "http://localhost:3000";
+    serve(opts?: Partial<ServeOptions & { 
+        protocol: "http" | "https", 
+        fallback: (req: Request, server: Server) => Response | Promise<Response> 
+    }>) {
+        if (!opts)
+            opts = {};
+        if (!opts.baseURI)
+            opts.baseURI = `${opts.protocol || "http"}://${opts.hostname || "localhost"}:${opts.port || 3000}`;
+        if (!opts.fallback)
+            opts.fallback = () => new Response("", {
+                status: 404
+            });
 
-        const routes = routeFrom(this.handlers);
-        const trailLen = app.baseURI.length;
+        this.router.setBase(opts.baseURI);
+
+        opts.fetch = async (req: Request, server: Server) => {
+            const o = this.router.find(req.method, req.url);
+            if (!o?.handlers?.length)
+                return opts.fallback(req, server);
+
+            const hs = o.handlers as any[];
+
+            if (hs.length === 1)
+                return hs[0](req, server, o.params);
         
-        app.fetch = handlerFrom(routes, trailLen);
+            let res: Response;
+            for (const handler of hs)
+                if (res = await handler(req, server, o.params))
+                    return res;
+        }
 
-        return Bun.serve(app as ServeOptions);
+        return serve(opts as any);
     }
 }
 

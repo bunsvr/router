@@ -1,11 +1,11 @@
 import { AppRequest } from "@bunsvr/core";
 import { Server } from "bun";
-import { Methods, Pattern } from "trouter";
+import { App as CoreApp } from "@bunsvr/core";
 
 /**
  * A route handler function
  */
-export interface HandlerFunction<App, RequestData = any> {
+export interface HandlerFunction<App extends CoreApp = CoreApp, RequestData = any> {
     /**
      * Run the route handler
      * @param this The current app
@@ -13,25 +13,5 @@ export interface HandlerFunction<App, RequestData = any> {
      * @param server The current server
      * @param params The parsed params
      */
-    (this: App, request: AppRequest<RequestData>, server: Server, params: Record<string, string>): Promise<any> | any;
-}
-
-/**
- * A route handler
- */
-export interface Handler<App, RequestData = any> {
-    /**
-     * Target request method
-     */
-    method?: Methods | Methods[];
-
-    /**
-     * Target path
-     */
-    path: Pattern;
-
-    /**
-     * All route handler functions
-     */
-    run: HandlerFunction<App, RequestData> | HandlerFunction<App, RequestData>[];
+    (this: App, request: AppRequest<RequestData>, server: Server, params?: Record<string, string>): Promise<any> | any;
 }

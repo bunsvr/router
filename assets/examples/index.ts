@@ -3,18 +3,10 @@ import { Router } from "../..";
 const router = new Router();
 
 // Add a handler to other routes starts with "/main" but not "/main"
-router.use({
-    path: "/main/*",
-    run: () => new Response("Hello!"),
-});
+router.static("GET", "/home", () => new Response("Hello!"));
 
 // Not found error
-router.use({
-    path: "*",
-    run(request) {
-        return new Response(`Cannot ${request.method} ${request.url}`, { status: 404 });
-    }
-})
+router.dynamic("", "/(.*)", () => new Response("Not Found"));
 
 // Serve directly
 router.serve();
