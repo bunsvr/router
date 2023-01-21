@@ -17,13 +17,11 @@ class Router<App extends CoreApp = CoreApp, RequestData = any> {
 
     /**
      * Register a static route
-     * @param method The request method. "ALL" or "" means all request method
+     * @param method The request method. "" means all request method
      * @param path The request pathname
      * @param handlers Route handlers
      */
     static(method: string | string[], path: string, ...handlers: HandlerFunction<App, RequestData>[]) {
-        if (method === "ALL")
-            method = "";
         if (typeof method === "string")
             method = [method];
 
@@ -33,7 +31,7 @@ class Router<App extends CoreApp = CoreApp, RequestData = any> {
 
     /**
      * Register a dynamic route
-     * @param method The request method. "ALL" or "" means all request method
+     * @param method The request method. "" means all request method
      * @param path The request pathname
      * @param handlers Route handlers
      */
@@ -45,16 +43,11 @@ class Router<App extends CoreApp = CoreApp, RequestData = any> {
             this.router.match(m, path, ...handlers);
     }
 
-    /**
-     * Register the router as a middleware of an app
-     * @param app The target app
-     */
-    register(app: App) {
-        this.router.bind(app);
-        this.router.setBase(app.baseURI);
-
-        app.use(async (req, server) => {
+    #cb() {
+        return async (req: Request, server: Server) => {
             const o = this.router.find(req.method, req.url);
+            if (!o?.handlers?.length)
+                return;
 
             const hs = o.handlers as any[];
 
@@ -65,7 +58,18 @@ class Router<App extends CoreApp = CoreApp, RequestData = any> {
             for (const handler of hs)
                 if (res = await handler(req, server, o.params))
                     return res;
-        });
+        }
+    }
+
+    /**
+     * Register the router as a middleware of an app
+     * @param app The target app
+     */
+    register(app: App) {
+        this.router.bind(app);
+        this.router.setBase(app.baseURI);
+
+        app.use(this.#cb());
     }
 
     /**
@@ -87,21 +91,7 @@ class Router<App extends CoreApp = CoreApp, RequestData = any> {
 
         this.router.setBase(opts.baseURI);
 
-        opts.fetch = async (req: Request, server: Server) => {
-            const o = this.router.find(req.method, req.url);
-            if (!o?.handlers?.length)
-                return opts.fallback(req, server);
-
-            const hs = o.handlers as any[];
-
-            if (hs.length === 1)
-                return hs[0](req, server, o.params);
-        
-            let res: Response;
-            for (const handler of hs)
-                if (res = await handler(req, server, o.params))
-                    return res;
-        }
+        opts.fetch = this.#cb();
 
         return serve(opts as any);
     }

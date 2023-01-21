@@ -24,9 +24,6 @@ class Fouter<App extends CoreApp = CoreApp, RequestData = any> {
     }
 
     add(method: string, path: string, ...handlers: HandlerFunction<App, RequestData>[]) {
-        if (!path || path === "/")
-            path = "";
-
         this.static[path + method] = { handlers };
     }
 
@@ -49,6 +46,10 @@ class Fouter<App extends CoreApp = CoreApp, RequestData = any> {
      * @param path This path is a full URL
      */
     find(method: string, path: string) {
+        let index = path.lastIndexOf("?");
+        if (index > -1)
+            path = path.slice(0, index);
+
         const staticRoute = this.staticRoutes[path + method] || this.staticRoutes[path];
         if (!staticRoute) {
             for (const regex of this.regexRoutesKeys) {
