@@ -67,7 +67,7 @@ class Router<App extends CoreApp = CoreApp, RequestData = any> {
      */
     register(app: App) {
         this.router.bind(app);
-        this.router.setBase(app.baseURI);
+        this.router.setup();
 
         app.use(this.#cb());
     }
@@ -89,8 +89,7 @@ class Router<App extends CoreApp = CoreApp, RequestData = any> {
                 status: 404
             });
 
-        this.router.setBase(opts.baseURI);
-
+        this.router.setup();
         opts.fetch = this.#cb();
 
         return serve(opts as any);

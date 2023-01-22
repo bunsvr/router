@@ -13,6 +13,8 @@ const requestMethods = "(" + [
     "OPTIONS", "TRACE", "PATCH"
 ].join("|") + ")";
 
+const urlSlicer = /(?:\w+:)?\/\/[^\/]+([^?]+)/;
+
 class Fouter<App extends CoreApp = CoreApp, RequestData = any> {
     static: Record<string, Route<App, RequestData>>;
     regexp: Map<RegExp, Route<App, RequestData>>;
@@ -43,12 +45,8 @@ class Fouter<App extends CoreApp = CoreApp, RequestData = any> {
      * @param path This path is a full URL
      */
     find(method: string, path: string) {
-        // Remove fragment and query
-        let index: number;
-        if ((index = path.lastIndexOf("?")) > -1)
-            path = path.slice(0, index);
-        if ((index = path.lastIndexOf("#")) > -1)
-            path = path.slice(0, index);
+        // Remove query
+        path = path.match(urlSlicer)[1];
 
         const search = method + path;
         const staticRoute = this.staticRoutes[search] || this.staticRoutes[path];
@@ -69,13 +67,14 @@ class Fouter<App extends CoreApp = CoreApp, RequestData = any> {
         }
     }
 
-    setBase(uri: string) {
-        const reg = new RegExp("(" + uri + ")");
-
+    /**
+     * Remove this in future versions
+     */
+    setup() {
         this.staticRoutes = {};
 
         for (const key in this.static)
-            this.staticRoutes[this.static[key].method + uri + key] = this.static[key].handlers;
+            this.staticRoutes[this.static[key].method + key] = this.static[key].handlers;
 
         this.regexRoutes = new Map;
 
@@ -83,7 +82,7 @@ class Fouter<App extends CoreApp = CoreApp, RequestData = any> {
             const method = this.regexp.get(regex).method || requestMethods;
         
             this.regexRoutes.set(
-                new RegExp("^" + method + reg.source + regex.source + "$"),
+                new RegExp("^" + method + regex.source + "$"),
                 this.regexp.get(regex).handlers
             );
         }
