@@ -11,7 +11,7 @@ router.static("", "/", () =>
 
 // Add a handler to dynamic route /user/:id (GET method only)
 router.dynamic("GET", "/user/:id", (req, server, params) => 
-    new Response(params ? params[1] : "")
+    new Response(params ? params.join(" ") : "")
 )
 
 // Register as a middleware

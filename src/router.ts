@@ -1,18 +1,24 @@
 import { HandlerFunction } from "./types";
 import { App as CoreApp } from "@bunsvr/core";
-import { parse, pathToRegexp, Key } from "path-to-regexp";
+import { pathToRegexp } from "path-to-regexp";
 
 interface Route<App extends CoreApp, RequestData> {
     handlers: HandlerFunction<App, RequestData>[];
-    method?: string;
+    method: string;
 }
+
+const requestMethods = "(" + [
+    "GET", "HEAD", "POST", 
+    "PUT", "DELETE", "CONNECT", 
+    "OPTIONS", "TRACE", "PATCH"
+].join("|") + ")";
 
 class Fouter<App extends CoreApp = CoreApp, RequestData = any> {
     static: Record<string, Route<App, RequestData>>;
     regexp: Map<RegExp, Route<App, RequestData>>;
 
-    staticRoutes: Record<string, Route<App, RequestData>>;
-    regexRoutes: Map<RegExp, Route<App, RequestData>>;
+    staticRoutes: Record<string, HandlerFunction<App, RequestData>[]>;
+    regexRoutes: Map<RegExp, HandlerFunction<App, RequestData>[]>;
 
     constructor() {
         this.static = {};
@@ -20,7 +26,7 @@ class Fouter<App extends CoreApp = CoreApp, RequestData = any> {
     }
 
     add(method: string, path: string, ...handlers: HandlerFunction<App, RequestData>[]) {
-        this.static[path + method] = { handlers };
+        this.static[path] = { handlers, method };
     }
 
     match(method: string, path: string, ...handlers: HandlerFunction<App, RequestData>[]) {
@@ -37,45 +43,50 @@ class Fouter<App extends CoreApp = CoreApp, RequestData = any> {
      * @param path This path is a full URL
      */
     find(method: string, path: string) {
-        let index = path.lastIndexOf("?");
-        if (index > -1)
+        // Remove fragment and query
+        let index: number;
+        if ((index = path.lastIndexOf("?")) > -1)
+            path = path.slice(0, index);
+        if ((index = path.lastIndexOf("#")) > -1)
             path = path.slice(0, index);
 
-        const staticRoute = this.staticRoutes[path + method] || this.staticRoutes[path];
-        if (!staticRoute) {
-            for (const [regex, o] of this.regexRoutes.entries()) {
-                const res = regex.exec(path);
-                if (res && o.method === method) 
-                    return {
-                        params: res,
-                        handlers: o.handlers
-                    }
-            }
+        const search = method + path;
+        const staticRoute = this.staticRoutes[search] || this.staticRoutes[path];
+        if (staticRoute)
+            return {
+                params: [path],
+                handlers: staticRoute
+            };
 
-            return;
+        for (const [regex, o] of this.regexRoutes.entries()) {
+            const res = regex.exec(search);
+
+            if (res)
+                return {
+                    params: res,
+                    handlers: o
+                }
         }
-        
-        return {
-            params: [path],
-            handlers: staticRoute.handlers
-        };
     }
 
     setBase(uri: string) {
-        const reg = new RegExp("^" + uri);
+        const reg = new RegExp("(" + uri + ")");
 
         this.staticRoutes = {};
 
-        for (const key in this.static) 
-            this.staticRoutes[uri + key] = this.static[key];
+        for (const key in this.static)
+            this.staticRoutes[this.static[key].method + uri + key] = this.static[key].handlers;
 
         this.regexRoutes = new Map;
 
-        for (const regex of this.regexp.keys()) 
+        for (const regex of this.regexp.keys()) {
+            const method = this.regexp.get(regex).method || requestMethods;
+        
             this.regexRoutes.set(
-                new RegExp(reg.source + regex.source + "$"), 
-                this.regexp.get(regex)
+                new RegExp("^" + method + reg.source + regex.source + "$"),
+                this.regexp.get(regex).handlers
             );
+        }
     }
 
     bind(app: App) {
