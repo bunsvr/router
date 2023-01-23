@@ -18,7 +18,7 @@ const getReqSec = (v?: Buffer) => {
 
 // Run commands
 const defaultArgs = ["bombardier", "--fasthttp", "-c", "500", "-d", "10s"];
-const commands = ["/", "/90", "/a/b"]
+const commands = ["/", "/id/90", "/a/b"]
     .map(v => [...defaultArgs, "http://localhost:3000" + v]);
 
 const desFile = "./bench/results.txt";
@@ -48,7 +48,7 @@ for (const file of files) {
 
 // Results will be all here
 let str = "", cnt = 0;
-for (const cat of ["GET '/'", "GET '/90'", "GET '/a/b'"]) {
+for (const cat of ["GET '/'", "GET '/id/90'", "GET '/a/b'"]) {
     str += cat + ":\n";
     const arr = [{
         name: "BunSVR", 
