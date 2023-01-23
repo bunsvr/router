@@ -21,6 +21,11 @@ router.serve();
 
 See the docs [here](https://bunsvr.netlify.app/modules/_bunsvr_router.html).
 
+## Benchmark
+Clone the reposity. Go into the root directory and run `bun bench`.
+
+Wait around a minute and the result will be printed in the console. 
+
 ## Algorithm
 The [`Fouter`](/src/router.ts) algorithm.
 
