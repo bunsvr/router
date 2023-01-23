@@ -7,7 +7,7 @@ declare global {
         /**
          * The request parameters.
          */
-        params: string[];
+        params?: string[];
     }
 }
 
