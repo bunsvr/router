@@ -34,7 +34,7 @@ Router handlers are saved into a static map for static routes and an array for d
 ```typescript
 interface Fouter {
     static: Record<string, HandlerFunction>;
-    regexp: [RegExp, HandlerFunction][];
+    regexp: [[RegExp, HandlerFunction]];
 }
 ```
 

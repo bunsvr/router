@@ -5,27 +5,34 @@ import { pathToRegexp } from "path-to-regexp";
 const urlSlicer = /(?:\w+:)?\/\/[^\/]+([^?]+)/;
 
 class Fouter<App extends CoreApp = CoreApp, RequestData = any> {
-    static: Record<string, HandlerFunction<App, RequestData>>;
-    regexp: [RegExp, HandlerFunction<App, RequestData>][];
+    static: Record<string, HandlerFunction<RequestData, App>>;
+    regexp: [RegExp, HandlerFunction<RequestData, App>][];
 
     constructor() {
         this.static = {};
         this.regexp = [];
     }
 
-    add(method: string, path: string, handler: HandlerFunction<App, RequestData>) {
+    add(method: string, path: string, handler: HandlerFunction<RequestData, App>) {
         this.static[method + path] = handler;
     }
 
-    match(method: string, path: string, handler: HandlerFunction<App, RequestData>) {
-        this.regexp.push([pathToRegexp(method + path), handler]);
+    match(method: string, path: string | RegExp, handler: HandlerFunction<RequestData, App>) {
+        const regex = typeof path === "string"
+            ? pathToRegexp(method + path)
+            // Begins with method and ends with path
+            : new RegExp(
+                "(^" + `${method || `${method})(`}` 
+                + `${path.source}$)`
+            );
+        this.regexp.push([regex, handler]);
     }
 
     /**
      * @param method 
      * @param path This path is a full URL
      */
-    find(method: string, path: string): [HandlerFunction<App, RequestData>?, string[]?] {
+    find(method: string, path: string): [HandlerFunction<RequestData, App>?, string[]?] {
         // Remove query
         path = urlSlicer.exec(path)[1];
         const search = method + path;

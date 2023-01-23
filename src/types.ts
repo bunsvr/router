@@ -2,19 +2,10 @@ import { AppRequest } from "@bunsvr/core";
 import { Server } from "bun";
 import { App as CoreApp } from "@bunsvr/core";
 
-declare global {
-    interface Request {
-        /**
-         * The request parameters.
-         */
-        params?: string[];
-    }
-}
-
 /**
  * A route handler function
  */
-export interface HandlerFunction<App extends CoreApp = CoreApp, RequestData = any> {
+export interface HandlerFunction<RequestData = any, App extends CoreApp = CoreApp> {
     /**
      * Run the route handler
      * @param this The current app

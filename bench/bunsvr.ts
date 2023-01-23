@@ -7,5 +7,5 @@ new Router()
         async req => Response.json(await req.json())
     )
     .dynamic("GET", "/id/:id", 
-        req => new Response(req.params[1]))
+        req => new Response(req.params?.[1]))
     .serve();

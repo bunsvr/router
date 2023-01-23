@@ -1,4 +1,4 @@
-import { App as CoreApp } from "@bunsvr/core";
+import { AppRequest, App as CoreApp } from "@bunsvr/core";
 import { ServeOptions, Server, serve } from "bun";
 import Fouter from "./router";
 import { HandlerFunction } from "./types";
@@ -6,9 +6,9 @@ import { HandlerFunction } from "./types";
 /**
  * A BunSVR router
  * 
- * Note: This will run *only* the first route founded
+ * Note: This will run *only* the first route found
  */
-class Router<App extends CoreApp = CoreApp, RequestData = any> {
+class Router<RequestData = any, App extends CoreApp = CoreApp> {
     private readonly router: Fouter<App, RequestData>;
 
     constructor() {
@@ -21,7 +21,7 @@ class Router<App extends CoreApp = CoreApp, RequestData = any> {
      * @param path The request pathname
      * @param handlers Route handlers
      */
-    static(method: string | string[], path: string, handler: HandlerFunction<App, RequestData>) {
+    static(method: string | string[], path: string, handler: HandlerFunction<RequestData, App>) {
         if (typeof method === "string")
             method = [method];
 
@@ -37,7 +37,7 @@ class Router<App extends CoreApp = CoreApp, RequestData = any> {
      * @param path The request pathname
      * @param handlers Route handlers
      */
-    dynamic(method: string | string[], path: string, handler: HandlerFunction<App, RequestData>) {
+    dynamic(method: string | string[], path: string | RegExp, handler: HandlerFunction<RequestData, App>) {
         if (typeof method === "string")
             method = [method];
 
@@ -48,7 +48,7 @@ class Router<App extends CoreApp = CoreApp, RequestData = any> {
     }
 
     #cb(fallback: (req: Request, server: Server) => Response | Promise<Response>) {
-        return async (req: Request, server: Server) => {
+        return async (req: AppRequest, server: Server) => {
             const [handler, params] = this.router.find(req.method, req.url);
             if (!handler)
                 return fallback(req, server);
@@ -74,6 +74,8 @@ class Router<App extends CoreApp = CoreApp, RequestData = any> {
             });
 
         app.use(this.#cb(app.fallback.bind(app)));
+
+        return app;
     }
 
     /**
