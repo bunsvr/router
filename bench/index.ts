@@ -1,15 +1,23 @@
 import { appendFile } from "fs/promises";
 import Bun from "bun";
 
+// Destination file
+const desFile = "./bench/results.md";
+await Bun.write(desFile, `Bun: ${Bun.version}\n`);
+
+// Scripts
+{
+    const scripts = [["bun", "time.ts"], ["node", "os.cjs"]];
+    for (const script of scripts)
+        Bun.spawnSync([script[0], `./bench/scripts/${script[1]}`]);
+}
+
 // Benchmark results
 const results: number[] = [];
 
 // Framework and test URLs
 const frameworks = ["BunSVR", "Native"];
 const urls = [["/", "GET"], ["/id/90", "GET"], ["/a/b", "GET"], ["/json", "POST", `{"hello":"world"}`]];
-
-// OS Details
-Bun.spawnSync(["node", "./bench/osDetail.cjs"]);
 
 // Run benchmark
 {
@@ -65,67 +73,24 @@ Bun.spawnSync(["node", "./bench/osDetail.cjs"]);
     }
 }
 
-
-
-// Format result
+// Sort results
 {
-    // Destination file
-    const desFile = "./bench/results.md";
+    let str = "";
+    const categories = urls.map(v => `### ${v[1]} \`${v[0]}\``);
 
-    // Sort results
-    {
-        let str = "";
-        const categories = urls.map(v => `### ${v[1]} \`${v[0]}\``);
-
-        for (let i = 0; i < categories.length; ++i) {
-            str += categories[i] + ":\n" + frameworks
-                // { name, result }
-                .map((v, index) => ({
-                    name: v,
-                    res: results[i + index * urls.length]
-                }))
-                // Sort by result
-                .sort((a, b) => b.res - a.res)
-                // - name: result
-                .map(v => "- " + v.name + ": " + v.res + "\n")
-                .join("");
-        }
-
-        await appendFile(desFile, str);
+    for (let i = 0; i < categories.length; ++i) {
+        str += categories[i] + ":\n" + frameworks
+            // { name, result }
+            .map((v, index) => ({
+                name: v,
+                res: results[i + index * urls.length]
+            }))
+            // Sort by result
+            .sort((a, b) => b.res - a.res)
+            // - name: result
+            .map(v => "- " + v.name + ": " + v.res + "\n")
+            .join("");
     }
 
-    // Get time
-    {
-        const date = new Date();
-        const months = ["January", "Febuary", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-        const formatDate = (d: number) => {
-            const mod = d % 10;
-            if (d === 11 || d === 12 || d === 13)
-                return d + "th";
-
-            switch (mod) {
-                case 1:
-                    return d + "st";
-                case 2:
-                    return d + "nd";
-                case 3:
-                    return d + "rd";
-            }
-
-            return d + "th";
-        }
-
-        // Format minutes and hours
-        const formatMH = (d: number) => (d < 10 ? "0" : "") + d;
-
-        await appendFile(desFile, 
-            "\nTested at: " +
-            formatMH(date.getHours()) + ":" + formatMH(date.getMinutes()) + ", "
-            + months[date.getMonth()] + " " + formatDate(date.getDate()) + 
-            ", " + date.getFullYear() + "\n\n"
-        );
-    }
-
-    // Bun version
-    await appendFile(desFile, "Bun: " + Bun.version);
+    await appendFile(desFile, str);
 }

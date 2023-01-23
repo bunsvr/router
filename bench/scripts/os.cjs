@@ -18,13 +18,10 @@ const formatOS = str => {
     }
 }
 
-const { appendFileSync, existsSync, writeFileSync } = require("fs");
+const { appendFileSync } = require("fs");
 const os = require("os");
 
 const desFile = "./bench/results.md";
-
-if (!existsSync(desFile))
-    appendFileSync(desFile, "");
 
 // Get OS details
 let str = "";
@@ -38,4 +35,4 @@ str += "- System memory: " + formatByte(os.totalmem()) + "\n";
 str += "- Architecture: " + os.arch() + "\n";
 str += "\n## Results\n";
 
-writeFileSync(desFile, str);
+appendFileSync(desFile, str);
