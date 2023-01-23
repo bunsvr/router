@@ -38,7 +38,7 @@ const sleep = async () =>
     new Promise(res => setTimeout(res, 2000));
 
 // Start running
-const files = ["bunsvr", "elysia"].map(v => `./bench/${v}.ts`);
+const files = ["bunsvr", "native"].map(v => `./bench/${v}.ts`);
 
 for (const file of files) {
     const server = Bun.spawn(["bun", file]);
@@ -54,7 +54,7 @@ for (const cat of ["GET '/'", "GET '/90'", "GET '/a/b'"]) {
         name: "BunSVR", 
         res: results[cnt]
     }, {
-        name: "Elysia",
+        name: "Native",
         res: results[cnt + 3]
     }].sort((a, b) => b.res - a.res);
 
