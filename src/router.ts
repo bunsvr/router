@@ -21,10 +21,7 @@ class Fouter<App extends CoreApp = CoreApp, RequestData = any> {
         const regex = typeof path === "string"
             ? pathToRegexp(method + path)
             // Begins with method and ends with path
-            : new RegExp(
-                "(^" + `${method && `${method})(`}` 
-                + `${path.source}$)`
-            );
+            : new RegExp(method + path.source);
         this.regexp.push([regex, handler]);
     }
 
