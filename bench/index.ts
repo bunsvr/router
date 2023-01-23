@@ -20,11 +20,17 @@ const getReqSec = (v?: Buffer) => {
 
 // Framework and test URLs
 const frameworks = ["BunSVR", "Native"];
-const urls = ["/", "/id/90", "/a/b"];
+const urls = [["/", "GET"], ["/id/90", "GET"], ["/a/b", "GET"], ["/json", "POST", `{"hello":"world"}`]];
 
 // Run commands
 const defaultArgs = ["bombardier", "--fasthttp", "-c", "500", "-d", "10s"];
-const commands = urls.map(v => [...defaultArgs, "http://localhost:3000" + v]);
+const commands = urls.map(v => {
+    const arr = [...defaultArgs, "http://localhost:3000" + v[0], "-m", v[1]]
+    if (v[2])
+        arr.push("--body", v[2]);
+
+    return arr;
+});
 
 const run = async (server: Bun.Subprocess<Bun.OptionsToSubprocessIO<Bun.SpawnOptions.OptionsObject>>) => {
     for (const command of commands) {
@@ -51,7 +57,7 @@ for (const framework of frameworks) {
 
 // Sort results
 let str = "";
-const categories = urls.map(v => `GET "${v}"`);
+const categories = urls.map(v => `${v[1]} "${v[0]}"`);
 
 for (let i = 0; i < categories.length; ++i) {
     str += categories[i] + ":\n" + frameworks
