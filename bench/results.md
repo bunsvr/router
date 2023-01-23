@@ -1,24 +1,24 @@
 ## OS Details
 - CPU: Intel(R) Core(TM) i3-1005G1 CPU @ 1.20GHz
 - Cores: 4
-- Type: Linux
-- Total RAM: 3.95GB
-- Free RAM: 3.47GB
+- OS: Linux
+- System memory: 3.95GB
+- Architecture: x64
 
 ## Results
 ### GET `/`:
-- Native: 88737.8
-- BunSVR: 83971.06
+- Native: 89558.45
+- BunSVR: 83019.18
 ### GET `/id/90`:
-- Native: 81876.35
-- BunSVR: 74314.33
+- Native: 83223.01
+- BunSVR: 76132.09
 ### GET `/a/b`:
-- Native: 83989.79
-- BunSVR: 74463.71
+- Native: 84842.07
+- BunSVR: 77004.26
 ### POST `/json`:
-- BunSVR: 54263.76
-- Native: 47027.46
+- BunSVR: 56614.41
+- Native: 55114.65
 
-Tested at: 22:19, January 23rd, 2023
+Tested at: 22:29, January 23rd, 2023
 
 Bun: 0.5.1

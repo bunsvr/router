@@ -5,8 +5,17 @@ const formatByte = bytes => {
         bytes = Math.round(bytes / 10) / 100;
         ++i;
     }
-    
     return bytes + list[i];
+}
+const formatOS = str => {
+    switch (str) {
+        case "Windows_NT":
+            return "Windows";
+        case "Darwin":
+            return "Mac";
+        default:
+            return "Linux";
+    }
 }
 
 const { appendFileSync, existsSync, writeFileSync } = require("fs");
@@ -24,9 +33,9 @@ str += "## OS Details\n";
 const cpus = os.cpus();
 str += "- CPU: " + cpus[0].model + "\n";
 str += "- Cores: " + cpus.length + "\n";
-str += "- Type: " + os.type() + "\n";
-str += "- Total RAM: " + formatByte(os.totalmem()) + "\n";
-str += "- Free RAM: " + formatByte(os.freemem()) + "\n";
+str += "- OS: " + os.type() + "\n";
+str += "- System memory: " + formatByte(os.totalmem()) + "\n";
+str += "- Architecture: " + os.arch() + "\n";
 str += "\n## Results\n";
 
 writeFileSync(desFile, str);
