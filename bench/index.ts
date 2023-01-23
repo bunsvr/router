@@ -1,5 +1,5 @@
+import { appendFile } from "fs/promises";
 import Bun from "bun";
-import { appendFileSync, existsSync } from "fs";
 
 // Benchmark results
 const results: number[] = [];
@@ -7,6 +7,9 @@ const results: number[] = [];
 // Framework and test URLs
 const frameworks = ["BunSVR", "Native"];
 const urls = [["/", "GET"], ["/id/90", "GET"], ["/a/b", "GET"], ["/json", "POST", `{"hello":"world"}`]];
+
+// OS Details
+Bun.spawnSync(["node", "./bench/osDetail.cjs"]);
 
 // Run benchmark
 {
@@ -48,7 +51,7 @@ const urls = [["/", "GET"], ["/id/90", "GET"], ["/a/b", "GET"], ["/json", "POST"
 
     for (const framework of frameworks) {
         // Boot up
-        const server = Bun.spawn(["bun", `./bench/${framework.toLowerCase()}.ts`]);
+        const server = Bun.spawn(["bun", `./bench/src/${framework.toLowerCase()}.ts`]);
         console.log("Booting", framework + "...");
         await sleep();
 
@@ -67,12 +70,12 @@ const urls = [["/", "GET"], ["/id/90", "GET"], ["/a/b", "GET"], ["/json", "POST"
 // Format result
 {
     // Destination file
-    const desFile = "./bench/results.txt";
-    let str = "";
+    const desFile = "./bench/results.md";
 
     // Sort results
     {
-        const categories = urls.map(v => `${v[1]} "${v[0]}"`);
+        let str = "";
+        const categories = urls.map(v => `### ${v[1]} \`${v[0]}\``);
 
         for (let i = 0; i < categories.length; ++i) {
             str += categories[i] + ":\n" + frameworks
@@ -87,6 +90,8 @@ const urls = [["/", "GET"], ["/id/90", "GET"], ["/a/b", "GET"], ["/json", "POST"
                 .map(v => "- " + v.name + ": " + v.res + "\n")
                 .join("");
         }
+
+        await appendFile(desFile, str);
     }
 
     // Get time
@@ -110,15 +115,17 @@ const urls = [["/", "GET"], ["/id/90", "GET"], ["/a/b", "GET"], ["/json", "POST"
             return d + "th";
         }
 
-        str += "\nTested at: " +
-            date.getHours() + ":" + date.getMinutes() + ", "
-            + months[date.getMonth()] + " " + formatDate(date.getDate()) + ", " + date.getFullYear();
+        // Format minutes and hours
+        const formatMH = (d: number) => (d < 10 ? "0" : "") + d;
+
+        await appendFile(desFile, 
+            "\nTested at: " +
+            formatMH(date.getHours()) + ":" + formatMH(date.getMinutes()) + ", "
+            + months[date.getMonth()] + " " + formatDate(date.getDate()) + 
+            ", " + date.getFullYear() + "\n\n"
+        );
     }
 
-    if (!existsSync(desFile))
-        appendFileSync(desFile, "");
-
-    await Bun.write(desFile, str);
-    
-    console.log(str);
+    // Bun version
+    await appendFile(desFile, "Bun: " + Bun.version);
 }

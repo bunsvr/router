@@ -5,9 +5,11 @@ import { Router } from "@bunsvr/router";
 
 new Router()
     // Add a handler to route "/home"
-    .static("GET", "/home", () => new Response("Hello!"))
+    .static("GET", "/home", () => 
+        new Response("Hello!"))
     // Return a 404 for all other routes
-    .dynamic("", "/(.*)", () => new Response("Not Found"))
+    .dynamic("", "/(.*)", () => 
+        new Response("Not Found"))
     // Serve directly
     .serve();
 ```
@@ -16,12 +18,16 @@ See the docs [here](https://bunsvr.netlify.app/modules/_bunsvr_router.html).
 
 ## Benchmark
 Clone the [reposity](https://github.com/bunsvr/router). Go into the root directory and run `bun bench`.
-
 Wait around a minute and the result will be printed in the console. 
+
+You can see the benchmark result [here](/bench/results.md).
+
+I recommend benchmarking this on your machine.
 
 ### Requirements
 - Bombardier
 - Bun
+- Node
 
 ### Tests
 - GET `/`: Return `Hi` as a response.
