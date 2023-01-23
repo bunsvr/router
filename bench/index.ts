@@ -89,5 +89,5 @@ const formatDate = (d: number) => {
 
 str += "\nTested at: " +
     date.getHours() + ":" + date.getMinutes() + ", "
-    months[date.getMonth()] + " " + formatDate(date.getDate()) + ", " + date.getFullYear();
+    + months[date.getMonth()] + " " + formatDate(date.getDate()) + ", " + date.getFullYear();
 console.log(str);
