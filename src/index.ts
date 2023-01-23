@@ -21,12 +21,14 @@ class Router<App extends CoreApp = CoreApp, RequestData = any> {
      * @param path The request pathname
      * @param handlers Route handlers
      */
-    static(method: string | string[], path: string, ...handlers: HandlerFunction<App, RequestData>[]) {
+    static(method: string | string[], path: string, handler: HandlerFunction<App, RequestData>) {
         if (typeof method === "string")
             method = [method];
 
         for (const m of method)
-            this.router.add(m, path, ...handlers);
+            this.router.add(m, path, handler);
+
+        return this;
     }
 
     /**
@@ -35,29 +37,25 @@ class Router<App extends CoreApp = CoreApp, RequestData = any> {
      * @param path The request pathname
      * @param handlers Route handlers
      */
-    dynamic(method: string | string[], path: string, ...handlers: HandlerFunction<App, RequestData>[]) {
+    dynamic(method: string | string[], path: string, handler: HandlerFunction<App, RequestData>) {
         if (typeof method === "string")
             method = [method];
 
         for (const m of method)
-            this.router.match(m, path, ...handlers);
+            this.router.match(m, path, handler);
+
+        return this;
     }
 
-    #cb() {
+    #cb(fallback: (req: Request, server: Server) => Response | Promise<Response>) {
         return async (req: Request, server: Server) => {
-            const o = this.router.find(req.method, req.url);
-            if (!o?.handlers?.length)
-                return;
+            const [handler, params] = this.router.find(req.method, req.url);
+            if (!handler)
+                return fallback(req, server);
 
-            const hs = o.handlers as any[];
-
-            if (hs.length === 1)
-                return hs[0](req, server, o.params);
-        
-            let res: Response;
-            for (const handler of hs)
-                if (res = await handler(req, server, o.params))
-                    return res;
+            req.params = params;
+            /** @ts-ignore */
+            return handler(req, server);
         }
     }
 
@@ -65,11 +63,17 @@ class Router<App extends CoreApp = CoreApp, RequestData = any> {
      * Register the router as a middleware of an app
      * @param app The target app
      */
-    register(app: App) {
+    register(app: App & {
+        fallback?: (req: Request, server: Server) => Response | Promise<Response> 
+    }) {
         this.router.bind(app);
-        this.router.setup();
 
-        app.use(this.#cb());
+        if (!app.fallback)
+            app.fallback = () => new Response("", {
+                status: 404
+            });
+
+        app.use(this.#cb(app.fallback.bind(app)));
     }
 
     /**
@@ -77,20 +81,16 @@ class Router<App extends CoreApp = CoreApp, RequestData = any> {
      * @param opts Serve options
      */
     serve(opts?: Partial<ServeOptions & { 
-        protocol: "http" | "https", 
-        fallback: (req: Request, server: Server) => Response | Promise<Response> 
+        fallback?: (req: Request, server: Server) => Response | Promise<Response> 
     }>) {
         if (!opts)
             opts = {};
-        if (!opts.baseURI)
-            opts.baseURI = `${opts.protocol || "http"}://${opts.hostname || "localhost"}:${opts.port || 3000}`;
         if (!opts.fallback)
             opts.fallback = () => new Response("", {
                 status: 404
             });
 
-        this.router.setup();
-        opts.fetch = this.#cb();
+        opts.fetch = this.#cb(opts.fallback);
 
         return serve(opts as any);
     }
