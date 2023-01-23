@@ -16,10 +16,8 @@ export default {
         if (path.startsWith("/id/")) {
             path = path.slice(4);
                 
-            if (path.indexOf("/") > -1)
-                return new Response("", { status: 404 });
-
-            return new Response(path);
+            if (path.indexOf("/") < 0)
+                return new Response(path);
         }
 
         return new Response("", { status: 404 });

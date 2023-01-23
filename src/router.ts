@@ -22,7 +22,7 @@ class Fouter<App extends CoreApp = CoreApp, RequestData = any> {
             ? pathToRegexp(method + path)
             // Begins with method and ends with path
             : new RegExp(
-                "(^" + `${method || `${method})(`}` 
+                "(^" + `${method && `${method})(`}` 
                 + `${path.source}$)`
             );
         this.regexp.push([regex, handler]);

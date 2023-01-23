@@ -3,28 +3,31 @@ A router middleware for BunSVR.
 ```typescript
 import { Router } from "@bunsvr/router";
 
-const router = new Router();
-
-// Add a handler to route "/home"
-router.static("GET", "/home", 
-    () => new Response("Hello!")
-);
-
-// Return a 404 for all other routes
-router.dynamic("", "/(.*)", 
-    () => new Response("Not Found")
-);
-
-// Serve directly
-router.serve();
+new Router()
+    // Add a handler to route "/home"
+    .static("GET", "/home", () => new Response("Hello!"))
+    // Return a 404 for all other routes
+    .dynamic("", "/(.*)", () => new Response("Not Found"))
+    // Serve directly
+    .serve();
 ```
 
 See the docs [here](https://bunsvr.netlify.app/modules/_bunsvr_router.html).
 
 ## Benchmark
-Clone the reposity. Go into the root directory and run `bun bench`.
+Clone the [reposity](https://github.com/bunsvr/router). Go into the root directory and run `bun bench`.
 
 Wait around a minute and the result will be printed in the console. 
+
+### Requirements
+- Bombardier
+- Bun
+
+### Tests
+- GET `/`: Return `Hi` as a response.
+- POST `/json`: Return the sent request body as a response.
+- GET `/id/:id`: Return the `id` parameter value as a response. 
+- GET `/a/b`: Return an empty response with status code `404`.
 
 ## Algorithm
 The [`Fouter`](/src/router.ts) algorithm.
