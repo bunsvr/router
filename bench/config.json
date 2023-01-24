@@ -1,0 +1,39 @@
+{
+    "tests": [
+        {
+            "path": "/",
+            "method": "GET"
+        },
+        {
+            "path": "/id/90",
+            "method": "GET"
+        },
+        {
+            "path": "/a/b",
+            "method": "GET"
+        },
+        {
+            "path": "/json",
+            "method": "POST",
+            "body": {
+                "a": "b",
+                "c": "d"
+            }
+        }
+    ],
+    "scripts": [
+        {
+            "file": "time.ts",
+            "type": "bun"
+        },
+        {
+            "file": "os.cjs",
+            "type": "node"
+        }
+    ],
+    "command": {
+        "connections": 500,
+        "duration": 10,
+        "fasthttp": true
+    } 
+}

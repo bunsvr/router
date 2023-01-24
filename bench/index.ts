@@ -1,25 +1,33 @@
 import { appendFile } from "fs/promises";
 import Bun from "bun";
 import { readdirSync } from "fs";
+import data from "./config.json";
 
 // Destination file
 const desFile = "./bench/results.md";
-const rootDir = import.meta.dir;
 await Bun.write(desFile, `Bun: ${Bun.version}\n`);
 
-// Scripts
-{
-    const scripts = [["bun", "time.ts"], ["node", "os.cjs"]];
-    for (const script of scripts)
-        Bun.spawnSync([script[0], `${rootDir}/scripts/${script[1]}`]);
-}
+// Root directory of the benchmark
+const rootDir = import.meta.dir;
 
 // Benchmark results
 const results: number[] = [];
 
 // Framework and test URLs
 const frameworks = readdirSync(`${rootDir}/src`);
-const urls = [["/", "GET"], ["/id/90", "GET"], ["/a/b", "GET"], ["/json", "POST", `{"hello":"world"}`]];
+const urls = data.tests.map(v => {
+    const arr = [v.path, v.method];
+    if (v.body)
+        arr.push(JSON.stringify(v.body));
+
+    return arr;
+});
+
+// Run scripts
+{
+    for (const script of data.scripts)
+        Bun.spawnSync([script.type, `${rootDir}/scripts/${script.file}`]);
+}
 
 // Run benchmark
 {
@@ -29,8 +37,7 @@ const urls = [["/", "GET"], ["/id/90", "GET"], ["/a/b", "GET"], ["/json", "POST"
         if (!v)
             return -1;
 
-        const str = v.toString();
-        const num = catchNumber.exec(str);
+        const num = catchNumber.exec(v.toString());
 
         if (!num?.[1])
             return -1;
@@ -38,10 +45,25 @@ const urls = [["/", "GET"], ["/id/90", "GET"], ["/a/b", "GET"], ["/json", "POST"
         return Number(num[1]);
     }
 
-    // Run commands
-    const defaultArgs = ["bombardier", "--fasthttp", "-c", "1000", "-d", "20s"];
+    // Default arguments parsing
+    const parseDefaultArgs = () => {
+        const cmds = data.command;
+        const args: string[] = [];
+
+        if (cmds.fasthttp) 
+            args.push("--fasthttp");
+        if (cmds.connections)
+            args.push("-c", String(cmds.connections));
+        if (cmds.duration)
+            args.push("-d", cmds.duration + "s");
+
+        return args;
+    }
+    const defaultArgs = parseDefaultArgs();
+
+     // Run commands
     const commands = urls.map(v => {
-        const arr = [...defaultArgs, "http://localhost:3000" + v[0], "-m", v[1]];
+        const arr = ["bombardier", ...defaultArgs, "http://localhost:3000" + v[0], "-m", v[1]];
         if (v[2])
             arr.push("-b", v[2]);
 
@@ -50,8 +72,10 @@ const urls = [["/", "GET"], ["/id/90", "GET"], ["/a/b", "GET"], ["/json", "POST"
 
     const run = () => {
         for (const command of commands) {
-            const { stdout } = Bun.spawnSync(command as [string, ...string[]]);
-            results.push(getReqSec(stdout));
+            const res = getReqSec(Bun.spawnSync(command as [string, ...string[]]).stdout);
+
+            results.push(res);
+            console.log(`\`${command.join(" ")}\`:`, res);
         }
     }
 
@@ -60,8 +84,11 @@ const urls = [["/", "GET"], ["/id/90", "GET"], ["/a/b", "GET"], ["/json", "POST"
         new Promise(res => setTimeout(res, 2000));
 
     for (const framework of frameworks) {
+        Bun.gc(true);
+        const desDir = `${rootDir}/src/${framework}`;
+
         // Boot up
-        const server = Bun.spawn(["bun", `${rootDir}/src/${framework}/index.ts`]);
+        const server = Bun.spawn(["bun", `${desDir}/index.ts`], { cwd: desDir });
         console.log("Booting", framework + "...");
         await sleep();
 
@@ -71,7 +98,6 @@ const urls = [["/", "GET"], ["/id/90", "GET"], ["/a/b", "GET"], ["/json", "POST"
 
         // Clean up
         server.kill();
-        Bun.gc(true);
     }
 }
 
