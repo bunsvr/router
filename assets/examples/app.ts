@@ -1,8 +1,6 @@
 import { App } from "@bunsvr/core";
 import { Router } from "../..";
 
-const app = new App();
-
 // Serve the returned app using Bun
 export default new Router()
     // Add a handler to route / (All method)
@@ -12,7 +10,7 @@ export default new Router()
     .dynamic("GET", "/user/:id", req =>
         new Response(req.params?.[1] || ""))
     // Register as a middleware and returns the app
-    .register(app)
+    .register(new App())
     // Return 404 for other routes
     .use(async req =>
         new Response(
