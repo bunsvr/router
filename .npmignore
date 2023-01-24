@@ -10,7 +10,6 @@ src
 assets
 tsconfig.json
 typedoc.json
-bench
 
 # README
 README.md
