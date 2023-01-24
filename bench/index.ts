@@ -39,7 +39,7 @@ const urls = [["/", "GET"], ["/id/90", "GET"], ["/a/b", "GET"], ["/json", "POST"
     }
 
     // Run commands
-    const defaultArgs = ["bombardier", "--fasthttp", "-c", "500", "-d", "10s"];
+    const defaultArgs = ["bombardier", "--fasthttp", "-c", "1000", "-d", "20s"];
     const commands = urls.map(v => {
         const arr = [...defaultArgs, "http://localhost:3000" + v[0], "-m", v[1]];
         if (v[2])
