@@ -7,4 +7,5 @@ new Router()
     // Handle path that match the RegExp
     .dynamic("", valid, () =>
         new Response("Hello!"))
+    // Serve directly
     .serve();

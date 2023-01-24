@@ -47,15 +47,16 @@ class Router<RequestData = any, App extends CoreApp = CoreApp> {
         return this;
     }
 
-    #cb(fallback: (req: Request, server: Server) => Response | Promise<Response>) {
+    #cb(fallback: (req: Request, server: Server) => any | Promise<any>) {
         return async (req: AppRequest, server: Server) => {
             const [handler, params] = this.router.find(req.method, req.url);
-            if (!handler)
-                return fallback(req, server);
+            if (handler) {
+                req.params = params;
+                /** @ts-ignore */
+                return handler(req, server);
+            }
 
-            req.params = params;
-            /** @ts-ignore */
-            return handler(req, server);
+            return fallback(req, server);
         }
     }
 
@@ -63,17 +64,11 @@ class Router<RequestData = any, App extends CoreApp = CoreApp> {
      * Register the router as a middleware of an app
      * @param app The target app
      */
-    register(app: App & {
-        fallback?: (req: Request, server: Server) => Response | Promise<Response> 
-    }) {
+    register(app: App) {
         this.router.bind(app);
 
-        if (!app.fallback)
-            app.fallback = () => new Response("", {
-                status: 404
-            });
-
-        app.use(this.#cb(app.fallback.bind(app)));
+        // App should handle 404 
+        app.use(this.#cb(() => {}));
 
         return app;
     }
@@ -82,8 +77,8 @@ class Router<RequestData = any, App extends CoreApp = CoreApp> {
      * Serve the router
      * @param opts Serve options
      */
-    serve(opts?: Partial<ServeOptions & { 
-        fallback?: (req: Request, server: Server) => Response | Promise<Response> 
+    serve(opts?: Partial<ServeOptions & {
+        fallback?: (req: Request, server: Server) => Response | Promise<Response>
     }>) {
         if (!opts)
             opts = {};

@@ -1,10 +1,7 @@
 import { App } from "@bunsvr/core";
 import { Router } from "../..";
 
-// Return 404 for other routes
-const app = new App().use(async req =>
-    new Response(`Cannot ${req.method} ${req.url}`, { status: 404 })
-);
+const app = new App();
 
 // Serve the returned app using Bun
 export default new Router()
@@ -15,4 +12,10 @@ export default new Router()
     .dynamic("GET", "/user/:id", req =>
         new Response(req.params?.[1] || ""))
     // Register as a middleware and returns the app
-    .register(app);
+    .register(app)
+    // Return 404 for other routes
+    .use(async req =>
+        new Response(
+            `Cannot ${req.method} ${req.url}`,
+            { status: 404 }
+        ));
