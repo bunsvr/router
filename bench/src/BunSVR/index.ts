@@ -1,4 +1,4 @@
-import { Router } from "../..";
+import { Router } from "../../..";
 
 new Router()
     .static("GET", "/", 

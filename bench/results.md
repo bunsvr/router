@@ -1,6 +1,6 @@
 Bun: 0.5.1
 
-Tested at: 22:50, January 23rd, 2023
+Tested at: 08:50, January 24th, 2023
 
 ## OS Details
 - CPU: Intel(R) Core(TM) i3-1005G1 CPU @ 1.20GHz
@@ -11,14 +11,14 @@ Tested at: 22:50, January 23rd, 2023
 
 ## Results
 ### GET `/`:
-- Native: 89622.69
-- BunSVR: 84304.11
+- Native: 94741.67
+- BunSVR: 89132.86
 ### GET `/id/90`:
-- Native: 82442.31
-- BunSVR: 75786.73
+- Native: 81661.33
+- BunSVR: 81252.95
 ### GET `/a/b`:
-- Native: 83734.89
-- BunSVR: 76011.42
+- Native: 85000.72
+- BunSVR: 81977.92
 ### POST `/json`:
-- BunSVR: 55694.89
-- Native: 50548.65
+- Native: 76938.09
+- BunSVR: 74514.92

@@ -1,22 +1,24 @@
 import { appendFile } from "fs/promises";
 import Bun from "bun";
+import { readdirSync } from "fs";
 
 // Destination file
 const desFile = "./bench/results.md";
+const rootDir = import.meta.dir;
 await Bun.write(desFile, `Bun: ${Bun.version}\n`);
 
 // Scripts
 {
     const scripts = [["bun", "time.ts"], ["node", "os.cjs"]];
     for (const script of scripts)
-        Bun.spawnSync([script[0], `./bench/scripts/${script[1]}`]);
+        Bun.spawnSync([script[0], `${rootDir}/scripts/${script[1]}`]);
 }
 
 // Benchmark results
 const results: number[] = [];
 
 // Framework and test URLs
-const frameworks = ["BunSVR", "Native"];
+const frameworks = readdirSync(`${rootDir}/src`);
 const urls = [["/", "GET"], ["/id/90", "GET"], ["/a/b", "GET"], ["/json", "POST", `{"hello":"world"}`]];
 
 // Run benchmark
@@ -59,7 +61,7 @@ const urls = [["/", "GET"], ["/id/90", "GET"], ["/a/b", "GET"], ["/json", "POST"
 
     for (const framework of frameworks) {
         // Boot up
-        const server = Bun.spawn(["bun", `./bench/src/${framework.toLowerCase()}.ts`]);
+        const server = Bun.spawn(["bun", `${rootDir}/src/${framework}/index.ts`]);
         console.log("Booting", framework + "...");
         await sleep();
 
