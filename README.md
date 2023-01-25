@@ -17,7 +17,7 @@ new Router()
 See the docs [here](https://bunsvr.netlify.app/modules/_bunsvr_router.html).
 
 ## Benchmark
-Clone the [reposity](https://github.com/bunsvr/router). Go into the root directory and run `bun bench`.
+Clone this [reposity](https://github.com/bunsvr/benchmark). Go into the root directory and run `bun bench`.
 Wait around a minute and the result will be printed in the console. 
 
 You can see the benchmark result [here](/bench/results.md).
