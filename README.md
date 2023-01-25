@@ -36,14 +36,14 @@ I recommend benchmarking this on your machine.
 - GET `/a/b`: Return an empty response with status code `404`.
 
 ## Algorithm
-The [`Fouter`](/src/router.ts) algorithm.
+The routing algorithm.
 
 ### Storing handlers
 Router handlers are saved into a static map for static routes and an array for dynamic routes.
 ```typescript
-interface Fouter {
-    static: Record<string, HandlerFunction>;
-    regexp: [[RegExp, HandlerFunction]];
+class Router {
+    private statics: Record<string, HandlerFunction>;
+    private regexs: [RegExp, HandlerFunction][];
 }
 ```
 
@@ -67,3 +67,6 @@ If nothing matches returns an empty array.
 
 ## Note
 This is still experimental.
+
+Stable versions:
+- 0.0.14
