@@ -1,7 +1,9 @@
 import { AppRequest, App as CoreApp } from "@bunsvr/core";
 import { ServeOptions, Server, serve } from "bun";
-import Fouter from "./router";
 import { HandlerFunction } from "./types";
+import { pathToRegexp } from "path-to-regexp";
+
+const urlSlicer = /(?:\w+:)?\/\/[^\/]+([^?]+)/;
 
 /**
  * A BunSVR router
@@ -9,10 +11,15 @@ import { HandlerFunction } from "./types";
  * Note: This will run *only* the first route found
  */
 class Router<RequestData = any, App extends CoreApp = CoreApp> {
-    private readonly router: Fouter<App, RequestData>;
+    private statics: Record<string, HandlerFunction<RequestData, App>>;
+    private regexs: [RegExp, HandlerFunction<RequestData, App>][];
 
+    /**
+     * Initialize a router
+     */
     constructor() {
-        this.router = new Fouter();
+        this.statics = {};
+        this.regexs = [];
     }
 
     /**
@@ -21,12 +28,8 @@ class Router<RequestData = any, App extends CoreApp = CoreApp> {
      * @param path The request pathname
      * @param handlers Route handlers
      */
-    static(method: string | string[], path: string, handler: HandlerFunction<RequestData, App>) {
-        if (typeof method === "string")
-            method = [method];
-
-        for (const m of method)
-            this.router.add(m, path, handler);
+    static(method: string, path: string, handler: HandlerFunction<RequestData, App>) {
+        this.statics[method + path] = handler;
 
         return this;
     }
@@ -37,24 +40,30 @@ class Router<RequestData = any, App extends CoreApp = CoreApp> {
      * @param path The request pathname
      * @param handlers Route handlers
      */
-    dynamic(method: string | string[], path: string | RegExp, handler: HandlerFunction<RequestData, App>) {
-        if (typeof method === "string")
-            method = [method];
-
-        for (const m of method)
-            this.router.match(m, path, handler);
+    dynamic(method: string, path: string | RegExp, handler: HandlerFunction<RequestData, App>) {
+        const regex = typeof path === "string"
+            ? pathToRegexp(method + path)
+            // Begins with method and ends with path
+            : new RegExp(method + path.source);
+        this.regexs.push([regex, handler]);
 
         return this;
     }
 
-    #cb(fallback: (req: Request, server: Server) => any | Promise<any>) {
+    #cb(fallback: (req: AppRequest, server: Server) => any | Promise<any>) {
         return async (req: AppRequest, server: Server) => {
-            const [handler, params] = this.router.find(req.method, req.url);
-            if (handler) {
-                req.params = params;
+            const path = urlSlicer.exec(req.url)[1],
+                search = req.method + path;
+
+            let route = this.statics[search] || this.statics[path];
+            if (route)
                 /** @ts-ignore */
-                return handler(req, server);
-            }
+                return route(req, server);
+
+            for (const [reg, fn] of this.regexs)
+                if (req.params = reg.exec(search) || reg.exec(path))
+                    /** @ts-ignore */
+                    return fn(req, server);
 
             return fallback(req, server);
         }
@@ -64,8 +73,13 @@ class Router<RequestData = any, App extends CoreApp = CoreApp> {
      * Register the router as a middleware of an app
      * @param app The target app
      */
-    register(app: App) {
-        this.router.bind(app);
+    bind(app: App) {
+        // Bind all handler to the app
+        for (const key in this.statics)
+            this.statics[key] = this.statics[key].bind(app);
+
+        for (let i = 0; i < this.regexs.length; ++i)
+            this.regexs[i][1] = this.regexs[i][1].bind(app);
 
         // App should handle 404 
         app.use(this.#cb(() => {}));

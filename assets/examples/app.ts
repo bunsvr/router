@@ -10,7 +10,7 @@ export default new Router()
     .dynamic("GET", "/user/:id", req =>
         new Response(req.params?.[1] || ""))
     // Register as a middleware and returns the app
-    .register(new App())
+    .bind(new App())
     // Return 404 for other routes
     .use(async req =>
         new Response(
