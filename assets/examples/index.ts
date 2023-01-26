@@ -5,7 +5,7 @@ new Router()
     .static("GET", "/home", () => 
         new Response("Hello!"))
     // Return a 404 for all other routes
-    .dynamic("", "/(.*)", () => 
+    .dynamic("/(.*)", () => 
         new Response("Not Found"))
     // Serve directly
     .serve();

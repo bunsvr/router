@@ -24,33 +24,94 @@ class Router<RequestData = any, App extends CoreApp = CoreApp> {
 
     /**
      * Register a static route
-     * @param method The request method. "" means all request method
+     * @param method The request method.
      * @param path The request pathname
      * @param handlers Route handlers
      */
-    static(method: string, path: string, handler: HandlerFunction<RequestData, App>) {
-        this.statics[method + path] = handler;
+    static(method: string | string[], path: string, handler: HandlerFunction<RequestData, App>): Router;
+
+    /**
+    * Register a static route that matches all request methods
+    * @param path The request pathname
+    * @param handlers Route handlers
+    */
+    static(path: string, handler: HandlerFunction<RequestData, App>): Router;
+
+    static(...args: any[]) {
+        // Ignore when arguments length is smaller than two
+        if (args.length < 2)
+            return this;
+        // Register a static route that matches all request methods
+        if (args.length === 2)
+            return this.static("", args[0], args[1]);
+
+        // With 3 arguments
+        let [method, path, handler] = args;
+
+        if (!Array.isArray(method))
+            method = [method];
+
+        for (const m of method)
+            this.statics[m + path] = handler;
 
         return this;
     }
 
     /**
      * Register a dynamic route
-     * @param method The request method. "" means all request method
+     * @param method The request method.
      * @param path The request pathname
      * @param handlers Route handlers
      */
-    dynamic(method: string, path: string | RegExp, handler: HandlerFunction<RequestData, App>) {
-        const regex = typeof path === "string"
-            ? pathToRegexp(method + path)
-            // Begins with method and ends with path
-            : new RegExp(method + path.source);
-        this.regexs.push([regex, handler]);
+    dynamic(method: string | string[], path: string | RegExp, handler: HandlerFunction<RequestData, App>): Router;
+
+    /**
+     * Register a dynamic route that matches all request methods
+     * @param path The request pathname
+     * @param handlers Route handlers
+     */
+    dynamic(path: string | RegExp, handler: HandlerFunction<RequestData, App>): Router;
+    /**
+     * Register a dynamic route
+     * @param method The request method.
+     * @param path The request pathname
+     * @param handlers Route handlers
+     */
+    dynamic(...args: any[]) {
+        // Ignore when arguments length is smaller than two
+        if (args.length < 2)
+            return this;
+            
+        // Register a static route that matches all request methods
+        if (args.length === 2)
+            return this.dynamic("", args[0], args[1]);
+
+        // With 3 arguments
+        let [method, path, handler] = args;
+
+        if (!Array.isArray(method))
+            method = [method];
+
+        for (const m of method) {
+            const regex = typeof path === "string"
+                ? pathToRegexp(m + path)
+                // Begins with method and ends with path
+                : new RegExp(m + path.source);
+            this.regexs.push([regex, handler]);
+        }
 
         return this;
     }
 
-    #cb(fallback: (req: AppRequest, server: Server) => any | Promise<any>) {
+    /**
+     * Get the fetch handler of the router
+     * @param fallback a fallback when no handler of a path is found. Defaults to `() => {}`
+     * @returns the fetch handler
+     */
+    fetch(fallback?: (req: AppRequest, server: Server) => any | Promise<any>) {
+        if (!fallback)
+            fallback = () => { };
+
         return async (req: AppRequest, server: Server) => {
             const path = urlSlicer.exec(req.url)[1],
                 search = req.method + path;
@@ -82,7 +143,7 @@ class Router<RequestData = any, App extends CoreApp = CoreApp> {
             this.regexs[i][1] = this.regexs[i][1].bind(app);
 
         // App should handle 404 
-        app.use(this.#cb(() => {}));
+        app.use(this.fetch());
 
         return app;
     }
@@ -101,7 +162,7 @@ class Router<RequestData = any, App extends CoreApp = CoreApp> {
                 status: 404
             });
 
-        opts.fetch = this.#cb(opts.fallback);
+        opts.fetch = this.fetch(opts.fallback);
 
         return serve(opts as any);
     }

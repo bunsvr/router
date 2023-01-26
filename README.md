@@ -17,23 +17,9 @@ new Router()
 See the docs [here](https://bunsvr.netlify.app/modules/_bunsvr_router.html).
 
 ## Benchmark
-Clone this [reposity](https://github.com/bunsvr/benchmark). Go into the root directory and run `bun bench`.
-Wait around a minute and the result will be printed in the console. 
-
-You can see the benchmark result [here](/bench/results.md).
+You can see the latest [benchmark](https://github.com/bunsvr/benchmark) result [here](https://github.com/bunsvr/benchmark/blob/main/results.md).
 
 I recommend benchmarking this on your machine.
-
-### Requirements
-- Bombardier
-- Bun
-- Node
-
-### Tests
-- GET `/`: Return `Hi` as a response.
-- POST `/json`: Return the sent request body as a response.
-- GET `/id/:id`: Return the `id` parameter value as a response. 
-- GET `/a/b`: Return an empty response with status code `404`.
 
 ## Algorithm
 The routing algorithm.
@@ -48,9 +34,9 @@ class Router {
 ```
 
 ### Adding handlers
-The `add(method, path, handler)` set the key `method + path` to the handler.
+The `static(method, path, handler)` set the key `method + path` in `Router.statics` object to the handler.
 
-The `match(method, path, handler)` push an array with the RegExp path from `method + path` as the first element and the handler as the second element.
+The `dynamic(method, path, handler)` push an array with the RegExp path from `method + path` as the first element and the handler as the second element to `Router.regexs`.
 
 ### Finding routes
 Slice the pathname from the full URL using `/(?:\w+:)?\/\/[^\/]+([^?]+)/`.
@@ -70,3 +56,4 @@ This is still experimental.
 
 Stable versions:
 - 0.0.14
+- 0.0.15

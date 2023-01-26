@@ -4,7 +4,7 @@ import { Router } from "../..";
 // Serve the returned app using Bun
 export default new Router()
     // Add a handler to route / (All method)
-    .static("", "/", () =>
+    .static("/", () =>
         new Response("Hello!"))
     // Add a handler to dynamic route /user/:id (GET method only)
     .dynamic("GET", "/user/:id", req =>
