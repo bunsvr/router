@@ -81,7 +81,7 @@ class Router<RequestData = any, App extends CoreApp = CoreApp> {
         // Ignore when arguments length is smaller than two
         if (args.length < 2)
             return this;
-            
+
         // Register a static route that matches all request methods
         if (args.length === 2)
             return this.dynamic("", args[0], args[1]);
@@ -105,12 +105,27 @@ class Router<RequestData = any, App extends CoreApp = CoreApp> {
 
     /**
      * Get the fetch handler of the router
-     * @param fallback a fallback when no handler of a path is found. Defaults to `() => {}`
+     * @param fallback a fallback when no handler of a path is found
      * @returns the fetch handler
      */
     fetch(fallback?: (req: AppRequest, server: Server) => any | Promise<any>) {
         if (!fallback)
-            fallback = () => { };
+            return (req: AppRequest, server: Server) => {
+                const path = urlSlicer.exec(req.url)[1],
+                    search = req.method + path;
+    
+                let route = this.statics[search] || this.statics[path];
+                if (route)
+                    /** @ts-ignore */
+                    return route(req, server);
+    
+                for (const [reg, fn] of this.regexs)
+                    if (req.params = reg.exec(search) || reg.exec(path))
+                        /** @ts-ignore */
+                        return fn(req, server);
+    
+                return new Response("", { status: 404 });
+            };
 
         return async (req: AppRequest, server: Server) => {
             const path = urlSlicer.exec(req.url)[1],
@@ -157,10 +172,6 @@ class Router<RequestData = any, App extends CoreApp = CoreApp> {
     }>) {
         if (!opts)
             opts = {};
-        if (!opts.fallback)
-            opts.fallback = () => new Response("", {
-                status: 404
-            });
 
         opts.fetch = this.fetch(opts.fallback);
 
