@@ -56,4 +56,4 @@ This is still experimental.
 
 Stable versions:
 - 0.0.14
-- 0.0.15
+- 0.0.16
