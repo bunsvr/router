@@ -1,6 +1,6 @@
 {
   "name": "@bunsvr/router",
-  "version": "0.0.17",
+  "version": "0.0.18",
   "repository": {
     "url": "https://github.com/bunsvr/router"
   },
@@ -10,7 +10,7 @@
     "esbuild": "^0.16.10",
     "typescript": "^4.9.4",
     "path-to-regexp": "^6.2.1",
-    "@bunsvr/core": "^0.0.10"
+    "@bunsvr/core": "^0.0.11"
   },
   "description": "A router middleware for BunSVR",
   "scripts": {

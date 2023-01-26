@@ -109,24 +109,6 @@ class Router<RequestData = any, App extends CoreApp = CoreApp> {
      * @returns the fetch handler
      */
     fetch(fallback?: (req: AppRequest, server: Server) => any | Promise<any>) {
-        if (!fallback)
-            return (req: AppRequest, server: Server) => {
-                const path = urlSlicer.exec(req.url)[1],
-                    search = req.method + path;
-    
-                let route = this.statics[search] || this.statics[path];
-                if (route)
-                    /** @ts-ignore */
-                    return route(req, server);
-    
-                for (const [reg, fn] of this.regexs)
-                    if (req.params = reg.exec(search) || reg.exec(path))
-                        /** @ts-ignore */
-                        return fn(req, server);
-    
-                return new Response("", { status: 404 });
-            };
-
         return async (req: AppRequest, server: Server) => {
             const path = urlSlicer.exec(req.url)[1],
                 search = req.method + path;
@@ -141,7 +123,9 @@ class Router<RequestData = any, App extends CoreApp = CoreApp> {
                     /** @ts-ignore */
                     return fn(req, server);
 
-            return fallback(req, server);
+            return fallback 
+                ? fallback(req, server) 
+                : new Response("", { status: 404 });;
         }
     }
 
