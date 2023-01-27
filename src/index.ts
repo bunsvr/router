@@ -121,8 +121,6 @@ class Router<RequestData = any, App extends CoreApp = CoreApp> {
                 if (req.params = reg.exec(search) || reg.exec(path))
                     /** @ts-ignore */
                     return fn(req, server);
-
-            return new Response("", { status: 404 });;
         }
     }
 
