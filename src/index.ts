@@ -1,4 +1,4 @@
-import { AppRequest, App as CoreApp } from "@bunsvr/core";
+import { App as CoreApp } from "@bunsvr/core";
 import { ServeOptions, Server, serve } from "bun";
 import { HandlerFunction } from "./types";
 import { pathToRegexp } from "path-to-regexp";
@@ -105,11 +105,10 @@ class Router<RequestData = any, App extends CoreApp = CoreApp> {
 
     /**
      * Get the fetch handler of the router
-     * @param fallback a fallback when no handler of a path is found
      * @returns the fetch handler
      */
-    fetch(fallback?: (req: AppRequest, server: Server) => any | Promise<any>) {
-        return async (req: AppRequest, server: Server) => {
+    fetch() {
+        return (req: Request, server: Server) => {
             const path = urlSlicer.exec(req.url)[1],
                 search = req.method + path;
 
@@ -123,9 +122,7 @@ class Router<RequestData = any, App extends CoreApp = CoreApp> {
                     /** @ts-ignore */
                     return fn(req, server);
 
-            return fallback 
-                ? fallback(req, server) 
-                : new Response("", { status: 404 });;
+            return new Response("", { status: 404 });;
         }
     }
 
@@ -151,13 +148,11 @@ class Router<RequestData = any, App extends CoreApp = CoreApp> {
      * Serve the router
      * @param opts Serve options
      */
-    serve(opts?: Partial<ServeOptions & {
-        fallback?: (req: Request, server: Server) => Response | Promise<Response>
-    }>) {
+    serve(opts?: Partial<ServeOptions>) {
         if (!opts)
             opts = {};
 
-        opts.fetch = this.fetch(opts.fallback);
+        opts.fetch = this.fetch();
 
         return serve(opts as any);
     }

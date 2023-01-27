@@ -15,3 +15,13 @@ export interface HandlerFunction<RequestData = any, App extends CoreApp = CoreAp
      */
     (this: App, request: AppRequest<RequestData>, server: Server): Promise<any> | any;
 }
+
+// Override 
+declare global {
+    interface Request {
+        /**
+         * Parsed URL parameters. Only usable with RegExp routes.
+         */
+        params: string[];
+    }
+}
