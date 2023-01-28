@@ -1,6 +1,6 @@
 {
-  "name": "@bunsvr/router",
-  "version": "0.0.20",
+  "name": "@stricjs/router",
+  "version": "1.0.0",
   "repository": {
     "url": "https://github.com/bunsvr/router"
   },
@@ -10,9 +10,9 @@
     "esbuild": "^0.16.10",
     "typescript": "^4.9.4",
     "path-to-regexp": "^6.2.1",
-    "@bunsvr/core": "^0.0.12"
+    "@stricjs/core": "^1.0.0"
   },
-  "description": "A router middleware for BunSVR",
+  "description": "A router middleware for StricJS",
   "scripts": {
     "build": "esbuild src/index.ts --bundle --format=esm --minify --external:bun --outfile=index.js && tsc --declaration --outDir types --emitDeclarationOnly",
     "bench": "bun bench/index.ts"
@@ -21,6 +21,6 @@
   "types": "types/index.d.ts",
   "typedoc": {
     "entryPoint": "./src/index.ts",
-    "displayName": "@bunsvr/router"
+    "displayName": "@stricjs/router"
   }
 }
