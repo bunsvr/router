@@ -1,7 +1,7 @@
-A router middleware for BunSVR.
+A router middleware for StricJS.
 
 ```typescript
-import { Router } from "@bunsvr/router";
+import { Router } from "@stricjs/router";
 
 new Router()
     // Add a handler to route "/home"
