@@ -50,10 +50,3 @@ If there are no static handler of the path loop through the RegExp list and test
 If match then returns an array with the handler as the first element and the `RegExpExecArray` as the second element.
 
 If nothing matches returns an empty array.
-
-## Note
-This is still experimental.
-
-Stable versions:
-- 0.0.14
-- 0.0.16

@@ -109,16 +109,18 @@ class Router<RequestData = any, App extends CoreApp = CoreApp> {
      */
     fetch() {
         return (req: Request, server: Server) => {
-            const path = urlSlicer.exec(req.url)[1],
-                search = req.method + path;
+            /** @ts-ignore */
+            req.path ||= urlSlicer.exec(req.url)[1];
+            const search = req.method + req.path;
 
-            let route = this.statics[search] || this.statics[path];
+            let route = this.statics[search] || this.statics[req.path];
             if (route)
                 /** @ts-ignore */
                 return route(req, server);
 
             for (const [reg, fn] of this.regexs)
-                if (req.params = reg.exec(search) || reg.exec(path))
+                /** @ts-ignore */
+                if (req.params = reg.exec(search) || reg.exec(req.path))
                     /** @ts-ignore */
                     return fn(req, server);
         }
