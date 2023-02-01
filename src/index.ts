@@ -1,6 +1,6 @@
-import { App as CoreApp } from "@bunsvr/core";
+import { App } from "@stricjs/core";
 import { ServeOptions, Server, serve } from "bun";
-import { HandlerFunction } from "./types";
+import { Handler } from "./types";
 import { pathToRegexp } from "path-to-regexp";
 
 const urlSlicer = /(?:\w+:)?\/\/[^\/]+([^?]+)/;
@@ -10,9 +10,9 @@ const urlSlicer = /(?:\w+:)?\/\/[^\/]+([^?]+)/;
  * 
  * Note: This will run *only* the first route found
  */
-class Router<RequestData = any, App extends CoreApp = CoreApp> {
-    private statics: Record<string, HandlerFunction<RequestData, App>>;
-    private regexs: [RegExp, HandlerFunction<RequestData, App>][];
+class Router<T = any> {
+    private statics: Record<string, Handler<T>>;
+    private regexs: [RegExp, Handler<T>][];
 
     /**
      * Initialize a router
@@ -28,14 +28,14 @@ class Router<RequestData = any, App extends CoreApp = CoreApp> {
      * @param path The request pathname
      * @param handlers Route handlers
      */
-    static(method: string | string[], path: string, handler: HandlerFunction<RequestData, App>): Router;
+    static(method: string | string[], path: string, handler: Handler<T>): Router;
 
     /**
     * Register a static route that matches all request methods
     * @param path The request pathname
     * @param handlers Route handlers
     */
-    static(path: string, handler: HandlerFunction<RequestData, App>): Router;
+    static(path: string, handler: Handler<T>): Router;
 
     static(...args: any[]) {
         // Ignore when arguments length is smaller than two
@@ -63,14 +63,14 @@ class Router<RequestData = any, App extends CoreApp = CoreApp> {
      * @param path The request pathname
      * @param handlers Route handlers
      */
-    dynamic(method: string | string[], path: string | RegExp, handler: HandlerFunction<RequestData, App>): Router;
+    dynamic(method: string | string[], path: string | RegExp, handler: Handler<T>): Router;
 
     /**
      * Register a dynamic route that matches all request methods
      * @param path The request pathname
      * @param handlers Route handlers
      */
-    dynamic(path: string | RegExp, handler: HandlerFunction<RequestData, App>): Router;
+    dynamic(path: string | RegExp, handler: Handler<T>): Router;
     /**
      * Register a dynamic route
      * @param method The request method.
