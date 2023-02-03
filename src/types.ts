@@ -21,7 +21,7 @@ declare global {
         /**
          * Parsed URL parameters. Only usable with RegExp routes.
          */
-        readonly params: string[];
+        readonly params: RegExpExecArray;
 
         /**
          * Request pathname

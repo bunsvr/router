@@ -12,14 +12,16 @@ const urlSlicer = /(?:\w+:)?\/\/[^\/]+([^?]+)/;
  */
 class Router<T = any> {
     private statics: Record<string, Handler<T>>;
-    private regexs: [RegExp, Handler<T>][];
+    private regexs: Record<string, {
+        [method: string]: Handler<T>
+    }>;
 
     /**
      * Initialize a router
      */
     constructor() {
         this.statics = {};
-        this.regexs = [];
+        this.regexs = {};
     }
 
     /**
@@ -93,11 +95,17 @@ class Router<T = any> {
             method = [method];
 
         for (const m of method) {
-            const regex = typeof path === "string"
-                ? pathToRegexp(m + path)
-                // Begins with method and ends with path
-                : new RegExp(m + path.source);
-            this.regexs.push([regex, handler]);
+            const regex = (
+                typeof path === "string"
+                    ? pathToRegexp(path)
+                    // Begins with method and ends with path
+                    : new RegExp(path.source)
+            ).source;
+
+            this.regexs[regex] ||= {};
+            Object.assign(this.regexs[regex], {
+                [m]: handler
+            });
         }
 
         return this;
@@ -108,21 +116,30 @@ class Router<T = any> {
      * @returns the fetch handler
      */
     fetch() {
+        const regexs: [RegExp, {
+            [method: string]: Handler<T>
+        }][] = [];
+
+        for (const key in this.regexs)
+            regexs.push([new RegExp(key), this.regexs[key]]);
+
         return (req: Request, server: Server) => {
             /** @ts-ignore */
             req.path ||= urlSlicer.exec(req.url)[1];
-            const search = req.method + req.path;
 
-            let route = this.statics[search] || this.statics[req.path];
+            let route = this.statics[req.method + req.path] || this.statics[req.path];
             if (route)
                 /** @ts-ignore */
                 return route(req, server);
 
-            for (const [reg, fn] of this.regexs)
-                /** @ts-ignore */
-                if (req.params = reg.exec(search) || reg.exec(req.path))
+            for (const [reg, fn] of regexs)
+                if (
                     /** @ts-ignore */
-                    return fn(req, server);
+                    (req.params = reg.exec(req.path))
+                    && (route = fn[req.method])
+                )
+                    /** @ts-ignore */
+                    return route(req, server);
         }
     }
 
@@ -135,8 +152,13 @@ class Router<T = any> {
         for (const key in this.statics)
             this.statics[key] = this.statics[key].bind(app);
 
-        for (let i = 0; i < this.regexs.length; ++i)
-            this.regexs[i][1] = this.regexs[i][1].bind(app);
+        for (const key in this.regexs) {
+            const val = this.regexs[key];
+            for (const i in val)
+                val[i] = val[i].bind(app);
+
+            this.regexs[key] = val;
+        }
 
         // App should handle 404 
         app.use(this.fetch());
