@@ -86,7 +86,7 @@ class Router<T = any> {
 
         // Register a static route that matches all request methods
         if (args.length === 2)
-            return this.dynamic("", args[0], args[1]);
+            return this.dynamic("all", args[0], args[1]);
 
         // With 3 arguments
         let [method, path, handler] = args;
@@ -136,7 +136,7 @@ class Router<T = any> {
                 if (
                     /** @ts-ignore */
                     (req.params = reg.exec(req.path))
-                    && (route = fn[req.method])
+                    && (route = fn[req.method] || fn["all"])
                 )
                     /** @ts-ignore */
                     return route(req, server);
