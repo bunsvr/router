@@ -1,14 +1,11 @@
 import { Router } from "../..";
 
-// Match '/a' and '/b'
-const valid = /\/(a|b)/;
-
 new Router()
     // Add a handler to route "/home"
     .static(["GET", "POST"], "/home", () => 
         new Response("Hello!"))
     // Handle path that match the RegExp
-    .dynamic(["GET", "DELETE"], valid, req =>
-        new Response(req.params.join(" ")))
+    .dynamic("GET", "/user/:id", req =>
+        new Response(req.params.groups.id))
     // Serve directly
     .serve();

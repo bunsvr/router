@@ -1,7 +1,7 @@
 import { App } from "@stricjs/core";
 import { ServeOptions, Server, serve } from "bun";
 import { Handler } from "./types";
-import { pathToRegexp } from "path-to-regexp";
+import toRegex from "./toRegex";
 
 const urlSlicer = /(?:\w+:)?\/\/[^\/]+([^?]+)/;
 
@@ -97,9 +97,8 @@ class Router<T = any> {
         for (const m of method) {
             const regex = (
                 typeof path === "string"
-                    ? pathToRegexp(path)
-                    // Begins with method and ends with path
-                    : new RegExp(path.source)
+                    ? toRegex(path)
+                    : path
             ).source;
 
             this.regexs[regex] ||= {};
@@ -116,6 +115,7 @@ class Router<T = any> {
      * @returns the fetch handler
      */
     fetch() {
+        // Create regex array for searching
         const regexs: [RegExp, {
             [method: string]: Handler<T>
         }][] = [];
@@ -141,6 +141,15 @@ class Router<T = any> {
                     /** @ts-ignore */
                     return route(req, server);
         }
+    }
+
+    /**
+     * Extends a router
+     * @param router The Stric router to extend
+     */
+    extends(router: Router<T>) {
+        Object.assign(this.statics, router.statics);
+        Object.assign(this.regexs, router.regexs);
     }
 
     /**

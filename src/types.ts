@@ -15,13 +15,23 @@ export interface Handler<T = any> {
     (this: App, request: Request<T>, server: Server): any;
 }
 
+/**
+ * Override groups property
+ */
+export interface Parameters extends RegExpExecArray {
+    /**
+     * Named parameters
+     */
+    groups: Record<string, string>;
+}
+
 // Override 
 declare global {
     interface Request<T = any> {
         /**
          * Parsed URL parameters. Only usable with RegExp routes.
          */
-        readonly params: RegExpExecArray;
+        readonly params: Parameters;
 
         /**
          * Request pathname
