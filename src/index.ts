@@ -6,7 +6,7 @@ import toRegex from "./toRegex";
 const urlSlicer = /(?:\w+:)?\/\/[^\/]+([^?]+)/;
 
 /**
- * A BunSVR router
+ * A Stric router
  * 
  * Note: This will run *only* the first route found
  */
@@ -124,6 +124,7 @@ class Router<T = any> {
             regexs.push([new RegExp(key), this.regexs[key]]);
 
         return (req: Request, server: Server) => {
+            // If req.path is already parsed don't parse another time 
             /** @ts-ignore */
             req.path ||= urlSlicer.exec(req.url)[1];
 
@@ -156,7 +157,7 @@ class Router<T = any> {
      * Register the router as a middleware of an app
      * @param app The target app
      */
-    bind(app: App) {
+    bind(app: App<T>) {
         // Bind all handler to the app
         for (const key in this.statics)
             this.statics[key] = this.statics[key].bind(app);
