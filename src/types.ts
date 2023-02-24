@@ -6,7 +6,6 @@ import { App } from "@stricjs/core";
  */
 export interface Handler<T = any> {
     /**
-     * Run the route handler
      * @param this The current app
      * @param request The current request
      * @param server The current server
@@ -16,13 +15,13 @@ export interface Handler<T = any> {
 }
 
 /**
- * Override groups property
+ * Parsed parameters
  */
 export interface Parameters extends RegExpExecArray {
     /**
-     * Named parameters
+     * Named parsed parameters
      */
-    groups: Record<string, string>;
+    readonly groups: Record<string, string>;
 }
 
 // Override 
