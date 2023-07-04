@@ -238,12 +238,7 @@ const matchRoute = <T>(
                     return p;
                 }
             } else if (param.inert !== null) {
-                const route = matchRoute(
-                    url,
-                    urlLength,
-                    param.inert,
-                    slashIndex
-                );
+                const route = matchRoute(url, urlLength, param.inert, slashIndex);
 
                 if (route !== null) {
                     route[param.paramName] = url.substring(

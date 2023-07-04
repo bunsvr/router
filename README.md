@@ -19,10 +19,3 @@ export default new Router()
 You can see the latest [benchmark](https://github.com/bunsvr/benchmark) result [here](https://github.com/bunsvr/benchmark/blob/main/results/index.md).
 
 I recommend benchmarking this on your machine.
-
-# Note
-Stric is experimental. You may need to use Stric in some cases that you need to write some really fast app.
-
-Other than that, consider using Elysia or Hono, they are fast alternatives as well, and offers more features.
-
-Stric in version 3.0.0 will be much stable with better documentation.
