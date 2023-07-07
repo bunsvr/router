@@ -188,7 +188,7 @@ const matchRoute = <T>(
     node: Node<T>,
     startIndex: number
 ): FindResult<T> | null => {
-    const part = node.part, partLen = part.length, endIndex = startIndex + partLen;
+    const { part } = node, partLen = part.length, endIndex = startIndex + partLen;
     // Only check the pathPart if its length is > 1 since the parent has
     // already checked that the url matches the first character
     if (partLen > 1) {
@@ -234,17 +234,14 @@ const matchRoute = <T>(
                 if (param.store !== null) {
                     // This is much faster than using a computed property
                     const p: FindResult<T> = { _: param.store };
-                    p[param.paramName] = url.substring(endIndex, urlLength);
+                    p[param.paramName] = url.substring(endIndex);
                     return p;
                 }
             } else if (param.inert !== null) {
                 const route = matchRoute(url, urlLength, param.inert, slashIndex);
 
                 if (route !== null) {
-                    route[param.paramName] = url.substring(
-                        endIndex,
-                        slashIndex
-                    );
+                    route[param.paramName] = url.substring(endIndex, slashIndex);
                     return route;
                 }
             }
@@ -252,7 +249,7 @@ const matchRoute = <T>(
     }
 
     if (node.wildcardStore !== null)
-        return { '*': url.substring(endIndex, urlLength), _: node.wildcardStore };
+        return { '*': url.substring(endIndex), _: node.wildcardStore };
 
     return null;
 }

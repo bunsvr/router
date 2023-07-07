@@ -44,9 +44,14 @@ declare global {
         readonly path: string;
 
         /**
-         * Request query start index with the `?`.
+         * Request query start index (include `?`).
          */
         readonly query: number;
+
+        /**
+         * The current server
+         */
+        readonly server: import('bun').Server;
     }
 }
 
@@ -55,10 +60,3 @@ export type StaticRoute = {
         [method: string]: Handler | number
     }
 };
-
-export interface RouteOptions {
-    /**
-     * Whether to parse query or not
-     */
-    parseQuery: boolean;
-}

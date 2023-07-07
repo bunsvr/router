@@ -2,9 +2,6 @@
 bun.lockb
 node_modules
 
-# Tests
-tests
-
 # Build
 index.js
 types

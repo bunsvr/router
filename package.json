@@ -1,6 +1,6 @@
 {
   "name": "@stricjs/router",
-  "version": "3.2.0-alpha.1",
+  "version": "3.2.0-beta.3",
   "repository": {
     "url": "https://github.com/bunsvr/router"
   },
@@ -13,7 +13,8 @@
   "description": "A router for StricJS",
   "scripts": {
     "bench": "bombardier --fasthttp -c 500 -d 30s http://localhost:3000",
-    "microbench": "bun microbench/index.ts"
+    "microbench": "bun microbench/index.ts",
+    "build-test": "bun build.ts && bun test"
   },
   "type": "module",
   "types": "types/index.d.ts",

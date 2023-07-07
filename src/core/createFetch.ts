@@ -3,7 +3,7 @@ import { StaticRoute } from './types';
 type PathHandler = {
     method: string,
     index: number,
-    ws: number,
+    ws: number
 };
 type HandlerObject = {
     [path: string]: PathHandler[]
@@ -36,23 +36,19 @@ function getWSHandler(wsIndex: number | string) {
         wsIndex = 'w' + wsIndex;
     else 
         wsIndex = `q[${wsIndex}]`;
-    return `if(this.upgrade(r,${wsIndex}))return;`;
+    return `{r._=${wsIndex};return this.upgrade(r,{data:r});}`;
 }
 
 function getSwitchHandler(item: PathHandler) {
     return item.ws === -1 ? `return c${item.index}(r);` : getWSHandler(item.ws);
 }
 
-function checkMethods(list: PathHandler[], returnStatement: string) {
+function checkMethods(list: PathHandler[]) {
     if (list.length === 1) {
-        const { method, ws: wsIndex, index } = list[0];
-
-        if (wsIndex === -1)
-            return `if(method==='${method}')return c${index}(r);${returnStatement}`;
-
-        return `return this.upgrade(r,w${wsIndex});`;
+        const item = list[0], { method } = item;
+        return `if(method==='${method}')${getSwitchHandler(item)}break;`;
     }
-    return `switch(method){${list.map(item => `case '${item.method}':${getSwitchHandler(item)}`)}default:${returnStatement}}`;
+    return `switch(method){${list.map(item => `case '${item.method}':${getSwitchHandler(item)}`)}}`;
 }
 
 function getHandler(path: string, method: string) {
@@ -70,10 +66,13 @@ function searchHandler(routes: StaticRoute) {
                 hs[path] = [];
 
             let ws = -1;
-            if (typeof pathHandlers[method] === 'number')
-                ws = pathHandlers[method] as number;
+            const currentHandler = pathHandlers[method];
+            if (typeof currentHandler === 'number')
+                ws = currentHandler as number;
 
-            hs[path].push({ method, index, ws });
+            hs[path].push({ 
+                method, index, ws,
+            });
             ++index;
         }
     }
@@ -103,7 +102,7 @@ function createFetchBody(app: any) {
         for (const item of handlers[path]) {
             fnSetLiteral += `c${item.index}=${getHandler(path, item.method)},`;
             if (item.ws !== -1) 
-                fnWSLiteral += `w${item.index}={data:x[${item.index}]},`
+                fnWSLiteral += `w${item.index}=x[${item.index}],`
         }
 
     // Paths
@@ -112,22 +111,18 @@ function createFetchBody(app: any) {
     // Switch literal
     let fnSwitchLiteral = '';
     for (const path of paths)
-        fnSwitchLiteral += `case'${path}':${checkMethods(handlers[path], returnStatement)}`;
+        fnSwitchLiteral += `case'${path}':${checkMethods(handlers[path])}`;
 
     const preHandlerPrefix = isAsync(app.fnPre) ? 'await ' : '';
-    const switchStatement = fnSwitchLiteral === ''
-        ? (
-            routerExists
-                ? handleRoute(returnStatement)
-                : returnStatement
-        ) : `switch(p){${fnSwitchLiteral}default:${routerExists ? handleRoute(returnStatement) : returnStatement}}`;
+    const switchStatement = (fnSwitchLiteral === '' ? '' : `switch(p){${fnSwitchLiteral}}`)
+        + (routerExists ? handleRoute(returnStatement) : returnStatement);
 
     // All variables are in here
-    let declarationLiteral = `${fnSetLiteral}${app.fn404 ? `h=app.fn404,` : ''}${app.fn404 === false ? 'n={status:404},' : ''}${app.router ? `f=app.router.find.bind(app.router),` : ''}${app.fnPre ? 't=app.fnPre,' : ''}${app.injects ? 'i=app.injects,' : ''}${wsExists ? 'x=app.webSocketHandlers,' : ''}${fnWSLiteral}`;
+    let declarationLiteral = `${fnSetLiteral}${app.fn404 ? `h=app.fn404,` : ''}${app.fn404 === false ? 'n={status:404},' : ''}${app.router ? `f=app.router.find.bind(app.router),` : ''}${app.fnPre ? 't=app.fnPre,' : ''}${app.injects ? 'i=app.injects,' : ''}${wsExists ? 'x=app.webSocketHandlers,' : ''}${fnWSLiteral}l=${app.cert ? 8 : 7},`;
     if (declarationLiteral !== '')  
         declarationLiteral = 'const ' + declarationLiteral.slice(0, -1) + ';';
 
-    const fnBody = `${declarationLiteral}return ${isAsync(app.fnPre) ? 'async ' : ''}function(r){const{url,method}=r,s=url.indexOf('/',12),e=url.indexOf('?',s+1),p=e===-1?url.substring(s):url.substring(s,e);r.query=e;r.path=p;${app.injects ? 'r.inject=i;' : ''}${app.fnPre 
+    const fnBody = `${declarationLiteral}return ${isAsync(app.fnPre) ? 'async ' : ''}function(r){const{url,method}=r,s=url.indexOf('/',12),e=url.indexOf('?',s+1),p=e===-1?url.substring(s):url.substring(s,e);r.path=p;r.query=e;r.server=this;${app.injects ? 'r.inject=i;' : ''}${app.fnPre 
     ? (app.fnPre.response
         ? `const b=${preHandlerPrefix}t(r);if(b!==undefined)return b;`
         : `if(${preHandlerPrefix}t(r)!==undefined)${returnStatement}`
@@ -157,6 +152,6 @@ export function createWSHandler(name: string) {
         argsList += ',m';
     if (name === 'close')
         argsList += ',c,m';
-    const body = `return function(${argsList}){const i=w.data.${name};if(i!==null)i(${argsList})}`;
+    const body = `return function(${argsList}){const i=w.data._.${name};if(i!==null)i(${argsList})}`;
     return Function(body)();
 }

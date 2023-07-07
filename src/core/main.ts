@@ -20,7 +20,7 @@ interface PreHandler extends Handler {
     response?: boolean;
 }
 
-interface Options extends Partial<TLSOptions>, Partial<ServerWebSocket>, GenericServeOptions {
+interface Options extends Partial<TLSOptions>, Partial<ServerWebSocket<Request>>, GenericServeOptions {
     serverNames?: Record<string, TLSOptions>;
 
     /**
@@ -109,7 +109,7 @@ export class Router implements Options {
      * @param path 
      * @param handler 
      */
-    ws(path: string, handler: WebSocketHandler) {
+    ws<T extends string>(path: T, handler: WebSocketHandler<Request<T>>) {
         if (!this.webSocketHandlers)
             this.webSocketHandlers = [];
 
