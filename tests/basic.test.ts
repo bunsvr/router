@@ -9,12 +9,14 @@ function toResponse(json: any) {
 }
 
 // Create the function;
-const fn = new Router()
+const fn = new Router({ host: 'http://localhost:3000' })
     .get('/', () => new Response('Hi'))
     .get('/id/:id', ({ params: { id } }) => new Response(id))
     .get('/:name/dashboard', ({ params: { name } }) => new Response(name))
     .post('/json', req => req.json().then(toResponse))
     .fetch;
+
+console.log(fn.toString());
     
 // GET / should returns 'Hi'
 test('GET /', async () => {

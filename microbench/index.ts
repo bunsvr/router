@@ -1,20 +1,12 @@
 import { run, bench } from 'mitata';
-const smallStr: string = 'a';
+const a = !!952;
 bench('Test 1', () => {
-    switch (smallStr) {
-        case 'b': {}
-        case 'c': {}
-    }  
-    return smallStr;
+    return a ? 0 : 1;    
 });
 
 bench('Test 2', () => {
-    switch (smallStr) {
-        case 'b': {}
-        case 'c': {}
-        default: break
-    } 
-    return smallStr;
+    if (a) return 0;
+    else return 1;
 });
 
 run();

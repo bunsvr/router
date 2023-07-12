@@ -11,7 +11,7 @@ type HandlerObject = {
 
 // n: The 404 response option
 // f: The function to search for the route
-// method: The request method
+// m: The request method
 // p: The parsed request pathname
 // h: The custom 404 handler
 // r: The request
@@ -20,12 +20,12 @@ type HandlerObject = {
 // i: The inject object
 // x: The wshandler
 // q: list of data match on index of WS handlers
-// url: The request URL
+// u: The request URL
 // s: Start index of path
 // e: Query start index
 // c: Prefix for other handlers of static routes
 // w: Prefix for websocket data
-const handleRoute = (returnStatement: string) => `const o=f(method,p);if(o===null)${returnStatement}r.params=o;return o._(r);`;
+const handleRoute = (returnStatement: string) => `const o=f(m,p);if(o===null)${returnStatement}r.params=o;return o._(r);`;
 
 function isAsync(func: Function) {
     return func && func.constructor.name === 'AsyncFunction';
@@ -46,9 +46,9 @@ function getSwitchHandler(item: PathHandler) {
 function checkMethods(list: PathHandler[]) {
     if (list.length === 1) {
         const item = list[0], { method } = item;
-        return `if(method==='${method}')${getSwitchHandler(item)}break;`;
+        return `if(m==='${method}')${getSwitchHandler(item)}break;`;
     }
-    return `switch(method){${list.map(item => `case '${item.method}':${getSwitchHandler(item)}`)}}`;
+    return `switch(m){${list.map(item => `case'${item.method}':${getSwitchHandler(item)}`)}}`;
 }
 
 function getHandler(path: string, method: string) {
@@ -113,16 +113,19 @@ function createFetchBody(app: any) {
     for (const path of paths)
         fnSwitchLiteral += `case'${path}':${checkMethods(handlers[path])}`;
 
-    const preHandlerPrefix = isAsync(app.fnPre) ? 'await ' : '';
-    const switchStatement = (fnSwitchLiteral === '' ? '' : `switch(p){${fnSwitchLiteral}}`)
+    const preHandlerPrefix = isAsync(app.fnPre) ? 'await ' : '',
+        switchStatement = (fnSwitchLiteral === '' ? '' : `switch(p){${fnSwitchLiteral}}`)
         + (routerExists ? handleRoute(returnStatement) : returnStatement);
 
+    const exactHostExists = !!app.host;
+    const exactHostVal = app.host?.length || 's', valPlusOne = exactHostExists ? exactHostVal + 1 : 's+1';
+
     // All variables are in here
-    let declarationLiteral = `${fnSetLiteral}${app.fn404 ? `h=app.fn404,` : ''}${app.fn404 === false ? 'n={status:404},' : ''}${app.router ? `f=app.router.find.bind(app.router),` : ''}${app.fnPre ? 't=app.fnPre,' : ''}${app.injects ? 'i=app.injects,' : ''}${wsExists ? 'x=app.webSocketHandlers,' : ''}${fnWSLiteral}l=${app.cert ? 8 : 7},`;
+    let declarationLiteral = `${fnSetLiteral}${app.fn404 ? `h=app.fn404,` : ''}${app.fn404 === false ? 'n={status:404},' : ''}${app.router ? `f=app.router.find.bind(app.router),` : ''}${app.fnPre ? 't=app.fnPre,' : ''}${app.injects ? 'i=app.injects,' : ''}${wsExists ? 'x=app.webSocketHandlers,' : ''}${fnWSLiteral}`;
     if (declarationLiteral !== '')  
         declarationLiteral = 'const ' + declarationLiteral.slice(0, -1) + ';';
 
-    const fnBody = `${declarationLiteral}return ${isAsync(app.fnPre) ? 'async ' : ''}function(r){const{url,method}=r,s=url.indexOf('/',12),e=url.indexOf('?',s+1),p=e===-1?url.substring(s):url.substring(s,e);r.path=p;r.query=e;r.server=this;${app.injects ? 'r.inject=i;' : ''}${app.fnPre 
+    const fnBody = `${declarationLiteral}return ${isAsync(app.fnPre) ? 'async ' : ''}function(r){const{url:u,method:m}=r,${exactHostExists ? '' : "s=u.indexOf('/',12),"}e=u.indexOf('?',${valPlusOne}),p=e===-1?u.substring(${exactHostVal}):u.substring(${exactHostVal},e);r.path=p;r.query=e;r.server=this;${app.injects ? 'r.inject=i;' : ''}${app.fnPre 
     ? (app.fnPre.response
         ? `const b=${preHandlerPrefix}t(r);if(b!==undefined)return b;`
         : `if(${preHandlerPrefix}t(r)!==undefined)${returnStatement}`
@@ -133,6 +136,7 @@ function createFetchBody(app: any) {
     return fnBody;
 };
 
+// Deez nuts
 const exec = globalThis.process && await import('vm').then(i => i.runInNewContext);
 /**
  * Create fetch function for Deno and Cloudflare workers

@@ -48,6 +48,17 @@ interface Options extends Partial<TLSOptions>, Partial<ServerWebSocket<Request>>
      * Enable inspect mode
      */
     inspector?: boolean;
+
+    /**
+     * Should be set to something like http://localhost:3000
+     * This enables optimizations for path parsing
+     */
+    host?: string;
+
+    /**
+     * Whether to use VM to compile code or the `Function()` constructor
+     */
+    useVM?: boolean; 
 }
 
 const methods = ['get', 'head', 'post', 'put', 'delete', 'connect', 'options', 'trace', 'patch'];
@@ -68,30 +79,12 @@ export class Router implements Options {
     private fn404: Handler;
     private injects: Record<string, any>;
     private fnPre: PreHandler;
-
-    /**
-     * Control whether `req.path` will be automatically parse or not
-     */
-    parsePath: boolean;
-
-    /**
-     * The error handler of the router
-     */
-    error: ErrorHandler;
-
-    /**
-     * Whether to use VM to compile code or the Function() constructor
-     */
-    useVM: boolean;
-
+    
     /**
      * Create a router
      */
-    constructor(public readonly root: string = '/') {
-        if (root !== '/' && root.endsWith('/'))
-            root = root.slice(0, -1);
-        this.root = root;
-        this.useVM = false;
+    constructor(opts: Options = {}) {
+        Object.assign(this, opts);
 
         for (const method of methods) {
             const METHOD = method.toUpperCase();
@@ -201,9 +194,6 @@ export class Router implements Options {
                 let [method, path, handler] = args;
                 if (!Array.isArray(method))
                     method = [method];
-
-                // Special cases
-                if (this.root !== '/') path = this.root + path;
 
                 if (path.includes(':') || path.includes('*')) {
                     if (!this.router)
