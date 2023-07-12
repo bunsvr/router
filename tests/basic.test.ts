@@ -9,7 +9,7 @@ function toResponse(json: any) {
 }
 
 // Create the function;
-const fn = new Router({ host: 'http://localhost:3000' })
+const fn = new Router({ base: 'http://localhost:3000' })
     .get('/', () => new Response('Hi'))
     .get('/id/:id', ({ params: { id } }) => new Response(id))
     .get('/:name/dashboard', ({ params: { name } }) => new Response(name))

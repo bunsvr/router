@@ -11,21 +11,19 @@ type HandlerObject = {
 
 // n: The 404 response option
 // f: The function to search for the route
-// m: The request method
-// p: The parsed request pathname
+// method: The request method
 // h: The custom 404 handler
 // r: The request
 // t: The pre-handler
 // b: The pre-handler result
 // i: The inject object
-// x: The wshandler
 // q: list of data match on index of WS handlers
-// u: The request URL
+// url: The request URL
 // s: Start index of path
 // e: Query start index
 // c: Prefix for other handlers of static routes
 // w: Prefix for websocket data
-const handleRoute = (returnStatement: string) => `const o=f(m,p);if(o===null)${returnStatement}r.params=o;return o._(r);`;
+const handleRoute = (returnStatement: string) => `const o=f(method,r.path);if(o===null)${returnStatement}r.params=o;return o._(r);`;
 
 function isAsync(func: Function) {
     return func && func.constructor.name === 'AsyncFunction';
@@ -46,9 +44,9 @@ function getSwitchHandler(item: PathHandler) {
 function checkMethods(list: PathHandler[]) {
     if (list.length === 1) {
         const item = list[0], { method } = item;
-        return `if(m==='${method}')${getSwitchHandler(item)}break;`;
+        return `if(method==='${method}')${getSwitchHandler(item)}break;`;
     }
-    return `switch(m){${list.map(item => `case'${item.method}':${getSwitchHandler(item)}`)}}`;
+    return `switch(method){${list.map(item => `case'${item.method}':${getSwitchHandler(item)}`)}}`;
 }
 
 function getHandler(path: string, method: string) {
@@ -97,12 +95,11 @@ function createFetchBody(app: any) {
     // Search handlers
     const handlers = searchHandler(routes);
     let fnSetLiteral = '', fnWSLiteral = '';
-    const wsExists = !!app.webSocketHandlers;
     for (const path in handlers)
         for (const item of handlers[path]) {
             fnSetLiteral += `c${item.index}=${getHandler(path, item.method)},`;
             if (item.ws !== -1) 
-                fnWSLiteral += `w${item.index}=x[${item.index}],`
+                fnWSLiteral += `w${item.index}=app.webSocketHandlers[${item.index}],`
         }
 
     // Paths
@@ -114,18 +111,18 @@ function createFetchBody(app: any) {
         fnSwitchLiteral += `case'${path}':${checkMethods(handlers[path])}`;
 
     const preHandlerPrefix = isAsync(app.fnPre) ? 'await ' : '',
-        switchStatement = (fnSwitchLiteral === '' ? '' : `switch(p){${fnSwitchLiteral}}`)
+        switchStatement = (fnSwitchLiteral === '' ? '' : `switch(r.path){${fnSwitchLiteral}}`)
         + (routerExists ? handleRoute(returnStatement) : returnStatement);
 
-    const exactHostExists = !!app.host;
-    const exactHostVal = app.host?.length || 's', valPlusOne = exactHostExists ? exactHostVal + 1 : 's+1';
+    const exactHostExists = !!app.base;
+    const exactHostVal = app.base?.length || 's', valPlusOne = exactHostExists ? exactHostVal + 1 : 's+1';
 
     // All variables are in here
-    let declarationLiteral = `${fnSetLiteral}${app.fn404 ? `h=app.fn404,` : ''}${app.fn404 === false ? 'n={status:404},' : ''}${app.router ? `f=app.router.find.bind(app.router),` : ''}${app.fnPre ? 't=app.fnPre,' : ''}${app.injects ? 'i=app.injects,' : ''}${wsExists ? 'x=app.webSocketHandlers,' : ''}${fnWSLiteral}`;
+    let declarationLiteral = `${fnSetLiteral}${app.fn404 ? `h=app.fn404,` : ''}${app.fn404 === false ? 'n={status:404},' : ''}${app.router ? `f=app.router.find.bind(app.router),` : ''}${app.fnPre ? 't=app.fnPre,' : ''}${app.injects ? 'i=app.injects,' : ''}${fnWSLiteral}`;
     if (declarationLiteral !== '')  
         declarationLiteral = 'const ' + declarationLiteral.slice(0, -1) + ';';
 
-    const fnBody = `${declarationLiteral}return ${isAsync(app.fnPre) ? 'async ' : ''}function(r){const{url:u,method:m}=r,${exactHostExists ? '' : "s=u.indexOf('/',12),"}e=u.indexOf('?',${valPlusOne}),p=e===-1?u.substring(${exactHostVal}):u.substring(${exactHostVal},e);r.path=p;r.query=e;r.server=this;${app.injects ? 'r.inject=i;' : ''}${app.fnPre 
+    const fnBody = `${declarationLiteral}return ${isAsync(app.fnPre) ? 'async ' : ''}function(r){const{url,method}=r${exactHostExists ? '' : ",s=url.indexOf('/',12)"};r.query=url.indexOf('?',${valPlusOne});if(r.query===-1)r.path=url.substring(${exactHostVal});else r.path=url.substring(${exactHostVal},e);${app.injects ? 'r.inject=i;' : ''}${app.fnPre 
     ? (app.fnPre.response
         ? `const b=${preHandlerPrefix}t(r);if(b!==undefined)return b;`
         : `if(${preHandlerPrefix}t(r)!==undefined)${returnStatement}`

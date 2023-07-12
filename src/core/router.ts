@@ -178,15 +178,15 @@ export class Radx<T> {
     find(method: string, url: string): FindResult<T> | null {
         const root = this.root[method];
         if (root === null) return null;
-        return matchRoute(url, url.length, root, 0);
+        return matchRoute(root, url, 0, url.length);
     }
 }
 
 const matchRoute = <T>(
-    url: string,
-    urlLength: number,
     node: Node<T>,
-    startIndex: number
+    url: string,
+    startIndex: number,
+    urlLength: number
 ): FindResult<T> | null => {
     const { part } = node, partLen = part.length, endIndex = startIndex + partLen;
     // Only check the pathPart if its length is > 1 since the parent has
@@ -220,7 +220,7 @@ const matchRoute = <T>(
     if (node.inert !== null) {
         const inert = node.inert.get(url.charCodeAt(endIndex));
         if (inert !== undefined) {
-            const route = matchRoute(url, urlLength, inert, endIndex);
+            const route = matchRoute(inert, url, endIndex, urlLength);
             if (route !== null) return route;
         }
     }
@@ -238,7 +238,7 @@ const matchRoute = <T>(
                     return p;
                 }
             } else if (param.inert !== null) {
-                const route = matchRoute(url, urlLength, param.inert, slashIndex);
+                const route = matchRoute(param.inert, url, slashIndex, urlLength);
 
                 if (route !== null) {
                     route[param.paramName] = url.substring(endIndex, slashIndex);

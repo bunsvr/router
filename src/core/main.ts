@@ -53,17 +53,18 @@ interface Options extends Partial<TLSOptions>, Partial<ServerWebSocket<Request>>
      * Should be set to something like http://localhost:3000
      * This enables optimizations for path parsing
      */
-    host?: string;
+    base?: string;
 
     /**
      * Whether to use VM to compile code or the `Function()` constructor
      */
-    useVM?: boolean; 
+    useVM?: boolean;
 }
 
 const methods = ['get', 'head', 'post', 'put', 'delete', 'connect', 'options', 'trace', 'patch'];
 const serverError = { status: 500 };
 const default505 = () => new Response(null, serverError);
+
 
 // Fix missing types
 export interface Router extends Options { };
@@ -251,6 +252,14 @@ export class Router implements Options {
 
         return createFetch(this);
     };
+
+    /**
+     * Start accepting connections
+     * This attach the server to the globalThis object as well
+     */
+    ls() {
+        globalThis.server = Bun.serve(this);
+    }
 
     /**
      * Add a GET method handler to the router 

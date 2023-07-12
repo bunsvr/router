@@ -47,13 +47,18 @@ declare global {
          * Request query start index (include `?`).
          */
         readonly query: number;
-
-        /**
-         * The current server
-         */
-        readonly server: import('bun').Server;
     }
+
+    /**
+     * The current running server. Only usable when app is run with `ls()`
+     */
+    var server: import('bun').Server;
 }
+
+/**
+ * The current running server. Only usable when app is run with `ls()`
+ */
+declare const server: import('bun').Server;
 
 export type StaticRoute = {
     [path: string]: {

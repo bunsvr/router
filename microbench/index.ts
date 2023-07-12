@@ -1,12 +1,12 @@
 import { run, bench } from 'mitata';
-const a = !!952;
-bench('Test 1', () => {
-    return a ? 0 : 1;    
-});
 
-bench('Test 2', () => {
-    if (a) return 0;
-    else return 1;
+function v(a = 0, b = 1) { return a + b };
+
+bench('No default', () => {
+    v(0, 1); v(0, 1); v(0, 1); v(0, 1);
+});
+bench('With default', () => {
+    v(); v(); v(); v();
 });
 
 run();
