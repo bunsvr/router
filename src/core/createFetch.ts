@@ -20,7 +20,6 @@ type HandlerObject = {
 // q: list of data match on index of WS handlers
 // url: The request URL
 // s: Start index of path
-// e: Query start index
 // c: Prefix for other handlers of static routes
 // w: Prefix for websocket data
 const handleRoute = (returnStatement: string) => `const o=f(method,r.path);if(o===null)${returnStatement}r.params=o;return o._(r);`;
@@ -122,7 +121,7 @@ function createFetchBody(app: any) {
     if (declarationLiteral !== '')  
         declarationLiteral = 'const ' + declarationLiteral.slice(0, -1) + ';';
 
-    const fnBody = `${declarationLiteral}return ${isAsync(app.fnPre) ? 'async ' : ''}function(r){const{url,method}=r${exactHostExists ? '' : ",s=url.indexOf('/',12)"};r.query=url.indexOf('?',${valPlusOne});if(r.query===-1)r.path=url.substring(${exactHostVal});else r.path=url.substring(${exactHostVal},e);${app.injects ? 'r.inject=i;' : ''}${app.fnPre 
+    const fnBody = `${declarationLiteral}return ${isAsync(app.fnPre) ? 'async ' : ''}function(r){const{url,method}=r${exactHostExists ? '' : ",s=url.indexOf('/',12)"};r.query=url.indexOf('?',${valPlusOne});if(r.query===-1)r.path=url.substring(${exactHostVal});else r.path=url.substring(${exactHostVal},r.query);${app.injects ? 'r.inject=i;' : ''}${app.fnPre 
     ? (app.fnPre.response
         ? `const b=${preHandlerPrefix}t(r);if(b!==undefined)return b;`
         : `if(${preHandlerPrefix}t(r)!==undefined)${returnStatement}`
