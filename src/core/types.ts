@@ -42,7 +42,6 @@ declare global {
          * Request pathname without query
          */
         readonly path: string;
-
         /**
          * Request query start index (include `?`).
          */
@@ -54,11 +53,6 @@ declare global {
      */
     var server: import('bun').Server;
 }
-
-/**
- * The current running server. Only usable when app is run with `ls()`
- */
-declare const server: import('bun').Server;
 
 export type StaticRoute = {
     [path: string]: {

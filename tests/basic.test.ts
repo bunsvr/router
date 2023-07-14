@@ -9,13 +9,13 @@ function toResponse(json: any) {
 }
 
 // Create the function;
-const fn = new Router({ base: 'http://localhost:3000' })
+const app = new Router({ base: 'http://localhost:3000' })
     .get('/', () => new Response('Hi'))
     .get('/id/:id', ({ params: { id } }) => new Response(id))
-    .get('/:name/dashboard', ({ params: { name } }) => new Response(name))
-    .post('/json', req => req.json().then(toResponse))
-    .fetch;
+    .get('/:name/dashboard/main', ({ params: { name } }) => new Response(name))
+    .post('/json', req => req.json().then(toResponse));
 
+const fn = app.fetch;
 console.log(fn.toString());
     
 // GET / should returns 'Hi'
@@ -33,9 +33,9 @@ test('GET /id/:id', async () => {
 });
 
 // Edge case test
-test('GET /:name/dashboard', async () => {
+test('GET /:name/dashboard/main', async () => {
     const randomNum = String(Math.round(Math.random() * 101)),
-        res = fn(new Request('http://localhost:3000/' + randomNum + '/dashboard'));
+        res = fn(new Request('http://localhost:3000/' + randomNum + '/dashboard/main'));
 
     expect(await res.text()).toBe(randomNum);
 });

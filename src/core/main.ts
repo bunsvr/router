@@ -74,7 +74,10 @@ export interface Router extends Options { };
  * Note: This will run *only* the first route found
  */
 export class Router implements Options {
-    private router: Radx<Handler>;
+    /**
+     * Internal dynamic path router 
+     */
+    readonly router: Radx<Handler>;
     private readonly static: StaticRoute = {};
     // This value is read by the createFetch() method
     private fn404: Handler;
@@ -198,6 +201,7 @@ export class Router implements Options {
 
                 if (path.includes(':') || path.includes('*')) {
                     if (!this.router)
+                        // @ts-ignore
                         this.router = new Radx;
                     for (const mth of method)
                         this.router.add(mth, path, handler);
@@ -249,6 +253,8 @@ export class Router implements Options {
         this.websocket.open = createWSHandler('open');
         this.websocket.drain = createWSHandler('drain');
         this.websocket.close = createWSHandler('close');
+
+        this.router.composeFind();
 
         return createFetch(this);
     };

@@ -42,6 +42,7 @@ const createParamNode = <T>(paramName: string): ParamNode<T> => ({
 
 export class Radx<T> {
     root: Record<string, Node<T>> = {};
+    rootList: Node<T>[] = new Array(methods.length);
 
     private static regex = {
         static: /:.+?(?=\/|$)/,
@@ -73,7 +74,8 @@ export class Radx<T> {
 
         let node: Node<T>;
 
-        if (this.root[method] === null) node = this.root[method] = createNode<T>('/');
+        if (this.root[method] === null) 
+            node = this.root[method] = createNode<T>('/'); 
         else node = this.root[method];
 
         let paramPartsIndex = 0;
@@ -150,7 +152,7 @@ export class Radx<T> {
         if (paramPartsIndex < paramParts.length) {
             // The final part is a parameter
             const param = paramParts[paramPartsIndex];
-            const paramName = param.slice(1);
+            const paramName = param.substring(1);
 
             if (node.params === null) node.params = createParamNode(paramName);
             else if (node.params.paramName !== paramName)
@@ -173,6 +175,36 @@ export class Radx<T> {
         // The final part is static
         if (node.store === null) node.store = store;
         return node.store;
+    }
+
+    /**
+     * Create a faster find
+     */
+    composeFind() {
+        const keyExists = [];
+        let index: number;
+        for (const key in this.root) {
+            index = methods.indexOf(key);
+            if (this.root[key] !== null)
+                keyExists.push({ key, index });
+            this.rootList[index] = this.root[key];
+        }
+
+        const rootCount = keyExists.length;
+        if (rootCount === 0) {
+            this.find = function() {return null;};
+            return;
+        }
+
+        const body = `const ${
+            keyExists.map(({ index }) => `r${index} = router.rootList[${index}]`).join(',')
+        };return function(m,u){${
+            rootCount > 1 ? `switch(m){${
+                keyExists.map(({ key, index }) => `case'${key}':return d(r${index},u,0,u.length);`).join('')
+            }default:return null;}` : `if(m==='${keyExists[0].key}')return d(r${keyExists[0].index},u,0,u.length);return null`
+        }}`;
+
+        this.find = Function('router', 'd', body)(this, matchRoute);
     }
 
     find(method: string, url: string): FindResult<T> | null {
@@ -201,7 +233,7 @@ const matchRoute = <T>(
                 else return null;
             }
         } else if (url.substring(startIndex, endIndex) !== part) return null;
-    };
+    }
 
     if (endIndex === urlLength) {
         // Reached the end of the URL
@@ -226,22 +258,22 @@ const matchRoute = <T>(
     }
 
     if (node.params !== null) {
-        const param = node.params, slashIndex = url.indexOf('/', endIndex);
+        const { params } = node, slashIndex = url.indexOf('/', endIndex);
 
         if (slashIndex !== endIndex) {
             // Params cannot be empty
             if (slashIndex === -1 || slashIndex >= urlLength) {
-                if (param.store !== null) {
+                if (params.store !== null) {
                     // This is much faster than using a computed property
-                    const p: FindResult<T> = { _: param.store };
-                    p[param.paramName] = url.substring(endIndex);
+                    const p: FindResult<T> = { _: params.store };
+                    p[params.paramName] = url.substring(endIndex);
                     return p;
                 }
-            } else if (param.inert !== null) {
-                const route = matchRoute(param.inert, url, slashIndex, urlLength);
+            } else if (params.inert !== null) {
+                const route = matchRoute(params.inert, url, slashIndex, urlLength);
 
                 if (route !== null) {
-                    route[param.paramName] = url.substring(endIndex, slashIndex);
+                    route[params.paramName] = url.substring(endIndex, slashIndex);
                     return route;
                 }
             }
