@@ -1,4 +1,3 @@
-import { warn } from 'console';
 import { StaticRoute } from './types';
 
 type PathHandler = {
@@ -21,7 +20,7 @@ type HandlerObject = {
 // s: Start index of path
 // c: Prefix for other handlers of static routes
 // w: Prefix for websocket data
-const handleRoute = (returnStatement: string) => `const o=f(r.method,'/'+p);if(o===null)${returnStatement}r.params=o;return o._(r);`;
+const handleRoute = (returnStatement: string) => `const o=f(r.method,p);if(o===null)${returnStatement}r.params=o;return o._(r);`;
 
 function isAsync(func: Function) {
     return func && func.constructor.name === 'AsyncFunction';
@@ -113,14 +112,14 @@ function createFetchBody(app: any) {
         + (routerExists ? handleRoute(returnStatement) : returnStatement);
 
     const exactHostExists = !!app.base;
-    const exactHostVal = app.base?.length + 1 || 's', valPlusOne = exactHostExists ? exactHostVal + 1 : 's+1';
+    const exactHostVal = app.base?.length + 1 || 's';
 
     // All variables are in here
     let declarationLiteral = `${fnSetLiteral}${app.fn404 ? `h=app.fn404,` : ''}${app.fn404 === false ? 'n={status:404},' : ''}${app.router ? `f=app.router.find.bind(app.router),` : ''}${app.fnPre ? 't=app.fnPre,' : ''}${app.injects ? 'i=app.injects,' : ''}${fnWSLiteral}`;
     if (declarationLiteral !== '')  
         declarationLiteral = 'const ' + declarationLiteral.slice(0, -1) + ';';
 
-    const fnBody = `${declarationLiteral}return ${isAsync(app.fnPre) ? 'async ' : ''}function(r){${exactHostExists ? '' : "const s=url.indexOf('/',12) + 1;"}r.query=r.url.indexOf('?',${valPlusOne});const p=r.query===-1?r.url.substring(${exactHostVal}):r.url.substring(${exactHostVal},r.query);${app.injects ? 'r.inject=i;' : ''}${app.fnPre 
+    const fnBody = `${declarationLiteral}return ${isAsync(app.fnPre) ? 'async ' : ''}function(r){${exactHostExists ? '' : "const s=url.indexOf('/',12) + 1;"}r.query=r.url.indexOf('?',${exactHostVal});const p=r.query===-1?r.url.substring(${exactHostVal}):r.url.substring(${exactHostVal},r.query);${app.injects ? 'r.inject=i;' : ''}${app.fnPre 
     ? (app.fnPre.response
         ? `const b=${preHandlerPrefix}t(r);if(b!==undefined)return b;`
         : `if(${preHandlerPrefix}t(r)!==undefined)${returnStatement}`

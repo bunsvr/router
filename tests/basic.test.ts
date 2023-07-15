@@ -12,7 +12,7 @@ function toResponse(json: any) {
 const app = new Router({ base: 'http://localhost:3000' })
     .get('/', () => new Response('Hi'))
     .get('/id/:id', ({ params: { id } }) => new Response(id))
-    .get('/:name/dashboard/main', ({ params: { name } }) => new Response(name))
+    .get('/:name/dashboard', ({ params: { name } }) => new Response(name))
     .post('/json', req => req.json().then(toResponse));
 
 const fn = app.fetch;
@@ -33,9 +33,9 @@ test('GET /id/:id', async () => {
 });
 
 // Edge case test
-test('GET /:name/dashboard/main', async () => {
+test('GET /:name/dashboard', async () => {
     const randomNum = String(Math.round(Math.random() * 101)),
-        res = fn(new Request('http://localhost:3000/' + randomNum + '/dashboard/main'));
+        res = fn(new Request('http://localhost:3000/' + randomNum + '/dashboard'));
 
     expect(await res.text()).toBe(randomNum);
 });

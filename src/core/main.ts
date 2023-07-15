@@ -200,9 +200,11 @@ export class Router implements Options {
                     method = [method];
 
                 if (path.includes(':') || path.includes('*')) {
-                    if (!this.router)
+                    if (!this.router) {
                         // @ts-ignore
                         this.router = new Radx;
+                        this.router.normalUsage = false;
+                    }
                     for (const mth of method)
                         this.router.add(mth, path, handler);
                 } else {

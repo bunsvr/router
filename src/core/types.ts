@@ -39,10 +39,6 @@ declare global {
          */
         readonly params: T;
         /**
-         * Request pathname without query
-         */
-        readonly path: string;
-        /**
          * Request query start index (include `?`).
          */
         readonly query: number;
