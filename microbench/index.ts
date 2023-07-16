@@ -1,21 +1,29 @@
 import { run, bench } from 'mitata';
 import { Radx } from '..';
 
-const noComposeFind = new Radx<number>, composedFind = new Radx<number>;
-noComposeFind.add('GET', '/id/:id', 0);
-noComposeFind.add('POST', '/:id/dashboard', 1);
+const noOptimize = new Radx<number>, optimized = new Radx<number>;
+noOptimize.add('GET', '/id/:id', 0);
+noOptimize.composeFind();
 
-composedFind.normalUsage = false;
-composedFind.add('GET', '/id/:id', 0);
-composedFind.composeFind();
+optimized.normalUsage = false;
+optimized.add('GET', '/id/:id', 0);
+optimized.composeFind();
+
+const path1 = '/id/90', path2 = path1.substring(1);
 
 bench('No compose', () => {
-    noComposeFind.find('GET', '/id/90');
-    noComposeFind.find('GET', '/id/90');
+    noOptimize.find('GET', path1);
+    noOptimize.find('GET', path1);
+    noOptimize.find('GET', path1);
+    noOptimize.find('GET', path1);
+    noOptimize.find('GET', path1);
 });
 bench('With compose', () => {
-    composedFind.find('GET', 'id/90');
-    composedFind.find('GET', 'id/90');
+    optimized.find('GET', path2);
+    optimized.find('GET', path2);
+    optimized.find('GET', path2);
+    optimized.find('GET', path2);
+    optimized.find('GET', path2);
 });
 
 // Try to get the JIT to run

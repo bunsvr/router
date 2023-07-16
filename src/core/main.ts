@@ -256,7 +256,7 @@ export class Router implements Options {
         this.websocket.drain = createWSHandler('drain');
         this.websocket.close = createWSHandler('close');
 
-        this.router.composeFind();
+        this.router?.composeFind();
 
         return createFetch(this);
     };
