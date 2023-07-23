@@ -188,7 +188,7 @@ export class Radx<T> {
             keyExists.map(({ index }) => `c${index} = router.rootList[${index}]`).join(',')
         };return function(r){${
             rootCount > 1 ? `switch(r.method){${
-                keyExists.map(({ key, index }) => `case'${key}':return d(c${index},r.url,0,r.url.length);`).join('')
+                keyExists.map(({ key, index }) => `case'${key}':return d(c${index},r.path,0,r.path.length);`).join('')
             }default:return null;}` : `return r.method==='${keyExists[0].key}'?d(c${keyExists[0].index},r.path,0,r.path.length):null;`
         }}`;
 
