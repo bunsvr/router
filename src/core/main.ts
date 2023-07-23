@@ -80,7 +80,7 @@ export class Router implements Options {
     readonly router: Radx<Handler>;
     private readonly static: StaticRoute = {};
     // This value is read by the createFetch() method
-    private fn404: Handler;
+    fn404: Handler;
     private injects: Record<string, any>;
     private fnPre: PreHandler;
     
@@ -112,14 +112,6 @@ export class Router implements Options {
 
         // @ts-ignore this is gonna be a nightmare to maintain
         this.get(path, this.webSocketHandlers.length);
-
-        if (!handler.open)
-            handler.open = null;
-        if (!handler.drain)
-            handler.drain = null;
-        if (!handler.close)
-            handler.close = null;
-
         this.webSocketHandlers.push(handler);
 
         if (path.includes(':') || path.includes('*'))

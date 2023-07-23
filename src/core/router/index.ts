@@ -185,20 +185,20 @@ export class Radx<T> {
         }
 
         const body = `const ${
-            keyExists.map(({ index }) => `r${index} = router.rootList[${index}]`).join(',')
-        };return function(m,u){${
-            rootCount > 1 ? `switch(m){${
-                keyExists.map(({ key, index }) => `case'${key}':return d(r${index},u,0,u.length);`).join('')
-            }default:return null;}` : `if(m==='${keyExists[0].key}')return d(r${keyExists[0].index},u,0,u.length);return null;`
+            keyExists.map(({ index }) => `c${index} = router.rootList[${index}]`).join(',')
+        };return function(r){${
+            rootCount > 1 ? `switch(r.method){${
+                keyExists.map(({ key, index }) => `case'${key}':return d(c${index},r.url,0,r.url.length);`).join('')
+            }default:return null;}` : `return r.method==='${keyExists[0].key}'?d(c${keyExists[0].index},r.path,0,r.path.length):null;`
         }}`;
 
         this.find = Function('router', 'd', body)(this, this.normalUsage ? basicMatch : optimizedMatch);
     }
 
-    find(method: string, url: string): FindResult<T> | null {
-        const root = this.root[method];
+    find(r: Request): FindResult<T> | null {
+        const root = this.root[r.method];
         if (root === null) return null;
-        return basicMatch(root, url, 0, url.length);
+        return basicMatch(root, r.path, 0, r.path.length);
     }
 }
 

@@ -17,6 +17,7 @@ const app = new Router({ base: 'http://localhost:3000' })
 
 const fn = app.fetch;
 console.log(fn.toString());
+console.log(app.router.find.toString());
     
 // GET / should returns 'Hi'
 test('GET /', async () => {

@@ -20,7 +20,7 @@ type HandlerObject = {
 // s: Start index of path
 // c: Prefix for other handlers of static routes
 // w: Prefix for websocket data
-const handleRoute = (returnStatement: string) => `const o=f(r.method,p);if(o===null)${returnStatement}r.params=o;return o._(r);`;
+const handleRoute = (returnStatement: string) => `const o=f(r);if(o===null)${returnStatement}r.params=o;return o._(r);`;
 
 function isAsync(func: Function) {
     return func && func.constructor.name === 'AsyncFunction';
@@ -108,7 +108,7 @@ function createFetchBody(app: any) {
         fnSwitchLiteral += `case'${path.substring(1)}':${checkMethods(handlers[path])}`;
 
     const preHandlerPrefix = isAsync(app.fnPre) ? 'await ' : '',
-        switchStatement = (fnSwitchLiteral === '' ? '' : `switch(p){${fnSwitchLiteral}}`)
+        switchStatement = (fnSwitchLiteral === '' ? '' : `switch(r.path){${fnSwitchLiteral}}`)
         + (routerExists ? handleRoute(returnStatement) : returnStatement);
 
     const exactHostExists = !!app.base;
@@ -119,7 +119,7 @@ function createFetchBody(app: any) {
     if (declarationLiteral !== '')  
         declarationLiteral = 'const ' + declarationLiteral.slice(0, -1) + ';';
 
-    const fnBody = `${declarationLiteral}return ${isAsync(app.fnPre) ? 'async ' : ''}function(r){${exactHostExists ? '' : "const s=url.indexOf('/',12) + 1;"}r.query=r.url.indexOf('?',${exactHostVal});const p=r.query===-1?r.url.substring(${exactHostVal}):r.url.substring(${exactHostVal},r.query);${app.injects ? 'r.inject=i;' : ''}${app.fnPre 
+    const fnBody = `${declarationLiteral}return ${isAsync(app.fnPre) ? 'async ' : ''}function(r){${exactHostExists ? '' : "const s=r.url.indexOf('/',12)+1;"}r.query=r.url.indexOf('?',${exactHostVal});r.path=r.query===-1?r.url.substring(${exactHostVal}):r.url.substring(${exactHostVal},r.query);${app.injects ? 'r.inject=i;' : ''}${app.fnPre 
     ? (app.fnPre.response
         ? `const b=${preHandlerPrefix}t(r);if(b!==undefined)return b;`
         : `if(${preHandlerPrefix}t(r)!==undefined)${returnStatement}`
@@ -145,11 +145,10 @@ export function createFetch(app: any) {
 }
 
 export function createWSHandler(name: string) {
-    let argsList = 'w';
-    if (name === 'message')
-        argsList += ',m';
-    if (name === 'close')
-        argsList += ',c,m';
-    const body = `return function(${argsList}){const i=w.data._.${name};if(i!==null)i(${argsList})}`;
+    const argsList = 'w' + (name === 'close' ? ',c,m' : '');
+    // Optimization: message handler should exist
+    const body = name === 'message' 
+        ? 'return function(w,m){w.data._.message(w,m)}' 
+        : `const n='${name}';return function(${argsList}){if(n in w.data._)w.data._.${name}(${argsList})}`;
     return Function(body)();
 }

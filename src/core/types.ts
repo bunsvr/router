@@ -19,10 +19,7 @@ export type Params<P extends string, E extends object = {}> = Check<ExtractParam
  */
 export interface Handler<T extends string = string> {
     /**
-     * @param this The current app
      * @param request The current request
-     * @param server The current server
-     * @param params The parsed params
      */
     (request: Request<Params<T>>): any;
 }
@@ -31,7 +28,7 @@ export interface Handler<T extends string = string> {
 declare global {
     interface Request<T = any> {
         /**
-         * Dependencies
+         * Injected dependencies
          */
         readonly inject: Record<string, any>;
         /**
@@ -42,6 +39,12 @@ declare global {
          * Request query start index (include `?`).
          */
         readonly query: number;
+
+        /**
+         * The parsed request path. 
+         * Example: `http://localhost:3000/id/90` -> `id/90`
+         */
+        readonly path: string;
     }
 
     /**
