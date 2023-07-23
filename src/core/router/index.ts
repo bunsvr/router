@@ -188,8 +188,8 @@ export class Radx<T> {
             keyExists.map(({ index }) => `c${index} = router.rootList[${index}]`).join(',')
         };return function(r){${
             rootCount > 1 ? `switch(r.method){${
-                keyExists.map(({ key, index }) => `case'${key}':return d(c${index},r.path,0,r.path.length);`).join('')
-            }default:return null;}` : `return r.method==='${keyExists[0].key}'?d(c${keyExists[0].index},r.path,0,r.path.length):null;`
+                keyExists.map(({ key, index }) => `case'${key}':return d(${getFindArgs(index)});`).join('')
+            }default:return null;}` : `return r.method==='${keyExists[0].key}'?d(${getFindArgs(keyExists[0].index)}):null;`
         }}`;
 
         this.find = Function('router', 'd', body)(this, this.normalUsage ? basicMatch : optimizedMatch);
@@ -200,6 +200,10 @@ export class Radx<T> {
         if (root === null) return null;
         return basicMatch(root, r.path, 0, r.path.length);
     }
+}
+
+function getFindArgs(index: number) {
+    return `c${index},r.path,0,r.path.length`;
 }
 
 export default Radx;
