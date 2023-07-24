@@ -73,7 +73,7 @@ export interface Router extends Options { };
  * 
  * Note: This will run *only* the first route found
  */
-export class Router implements Options {
+export class Router<I extends Dict<any> = {}> implements Options {
     /**
      * Internal dynamic path router 
      */
@@ -229,7 +229,7 @@ export class Router implements Options {
      * @param name
      * @param value 
      */
-    inject<T>(name: string, value: T) {
+    store<K extends string, V>(name: K, value: V): Router<I & { [key in K]: V }> {
         if (!this.injects)
             this.injects = {};
         this.injects[name] = value;
@@ -267,7 +267,7 @@ export class Router implements Options {
      * @param handler 
      */
     // @ts-ignore
-    get<T extends string>(path: T, handler: Handler<T>): this;
+    get<T extends string>(path: T, handler: Handler<T, I>): this;
 
     /**
      * Add a HEAD method handler to the router
@@ -275,7 +275,7 @@ export class Router implements Options {
      * @param handler 
      */
     // @ts-ignore
-    head<T extends string>(path: T, handler: Handler<T>): this;
+    head<T extends string>(path: T, handler: Handler<T, I>): this;
 
     /**
      * Add a POST method handler to the router
@@ -283,7 +283,7 @@ export class Router implements Options {
      * @param handler 
      */
     // @ts-ignore
-    post<T extends string>(path: T, handler: Handler<T>): this;
+    post<T extends string>(path: T, handler: Handler<T, I>): this;
 
     /**
      * Add a PUT method handler to the router
@@ -291,7 +291,7 @@ export class Router implements Options {
      * @param handler 
      */
     // @ts-ignore
-    put<T extends string>(path: T, handler: Handler<T>): this;
+    put<T extends string>(path: T, handler: Handler<T, I>): this;
 
     /**
      * Add a DELETE method handler to tne router
@@ -299,7 +299,7 @@ export class Router implements Options {
      * @param handler 
      */
     // @ts-ignore
-    delete<T extends string>(path: T, handler: Handler<T>): this;
+    delete<T extends string>(path: T, handler: Handler<T, I>): this;
 
     /**
      * Add a CONNECT method handler to tne router
@@ -307,7 +307,7 @@ export class Router implements Options {
      * @param handler 
      */
     // @ts-ignore
-    connect<T extends string>(path: T, handler: Handler<T>): this;
+    connect<T extends string>(path: T, handler: Handler<T, I>): this;
 
     /**
      * Add a OPTIONS method handler to tne router
@@ -315,7 +315,7 @@ export class Router implements Options {
      * @param handler 
      */
     // @ts-ignore
-    options<T extends string>(path: T, handler: Handler<T>): this;
+    options<T extends string>(path: T, handler: Handler<T, I>): this;
 
     /**
      * Add a TRACE method handler to tne router
@@ -323,7 +323,7 @@ export class Router implements Options {
      * @param handler 
      */
     // @ts-ignore
-    trace<T extends string>(path: T, handler: Handler<T>): this;
+    trace<T extends string>(path: T, handler: Handler<T, I>): this;
 
     /**
      * Add a PATCH method handler to tne router
@@ -331,7 +331,7 @@ export class Router implements Options {
      * @param handler 
      */
     // @ts-ignore
-    patch<T extends string>(path: T, handler: Handler<T>): this;
+    patch<T extends string>(path: T, handler: Handler<T, I>): this;
 }
 
 /**

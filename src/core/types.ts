@@ -17,20 +17,16 @@ export type Params<P extends string, E extends object = {}> = Check<ExtractParam
 /**
  * A route handler function
  */
-export interface Handler<T extends string = string> {
+export interface Handler<T extends string = string, I extends Dict<any> = {}> {
     /**
      * @param request The current request
      */
-    (request: Request<Params<T>>): any;
+    (request: Request<Params<T>>, store: Check<I>): any;
 }
 
 // Override 
 declare global {
     interface Request<T = any> {
-        /**
-         * Injected dependencies
-         */
-        readonly inject: Record<string, any>;
         /**
          * Parsed request parameter with additional properties if specified
          */

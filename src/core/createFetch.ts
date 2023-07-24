@@ -20,7 +20,7 @@ type HandlerObject = {
 // s: Start index of path
 // c: Prefix for other handlers of static routes
 // w: Prefix for websocket data
-const handleRoute = (returnStatement: string) => `const o=f(r);if(o===null)${returnStatement}r.params=o;return o._(r);`;
+const handleRoute = (returnStatement: string, args: string) => `const o=f(r);if(o===null)${returnStatement}r.params=o;return o._(${args});`;
 
 function isAsync(func: Function) {
     return func && func.constructor.name === 'AsyncFunction';
@@ -34,16 +34,16 @@ function getWSHandler(wsIndex: number | string) {
     return `{r._=${wsIndex};return this.upgrade(r,{data:r});}`;
 }
 
-function getSwitchHandler(item: PathHandler) {
-    return item.ws === -1 ? `return c${item.index}(r);` : getWSHandler(item.ws);
+function getSwitchHandler(item: PathHandler, args: string) {
+    return item.ws === -1 ? `return c${item.index}(${args});` : getWSHandler(item.ws);
 }
 
-function checkMethods(list: PathHandler[]) {
+function checkMethods(list: PathHandler[], args: string) {
     if (list.length === 1) {
         const item = list[0], { method } = item;
-        return `if(r.method==='${method}')${getSwitchHandler(item)}break;`;
+        return `if(r.method==='${method}')${getSwitchHandler(item, args)}break;`;
     }
-    return `switch(r.method){${list.map(item => `case'${item.method}':${getSwitchHandler(item)}`)}}`;
+    return `switch(r.method){${list.map(item => `case'${item.method}':${getSwitchHandler(item, args)}`)}}`;
 }
 
 function getHandler(path: string, method: string) {
@@ -80,6 +80,9 @@ function createFetchBody(app: any) {
     const routes = app.static as StaticRoute;
     const routerExists = !!app.router;
 
+    const injectExists = !!app.injects,
+        callArgs = 'r' + (injectExists ? ',i' : '');
+
     // If the app does registers a 404 handler change the return statement
     // app.fn404 is false when a handler is not set but use(404) is called
     let returnStatement = 'return';
@@ -105,21 +108,21 @@ function createFetchBody(app: any) {
     // Switch literal
     let fnSwitchLiteral = '';
     for (const path of paths)
-        fnSwitchLiteral += `case'${path.substring(1)}':${checkMethods(handlers[path])}`;
+        fnSwitchLiteral += `case'${path.substring(1)}':${checkMethods(handlers[path], callArgs)}`;
 
     const preHandlerPrefix = isAsync(app.fnPre) ? 'await ' : '',
         switchStatement = (fnSwitchLiteral === '' ? '' : `switch(r.path){${fnSwitchLiteral}}`)
-        + (routerExists ? handleRoute(returnStatement) : returnStatement);
+        + (routerExists ? handleRoute(returnStatement, callArgs) : returnStatement);
 
-    const exactHostExists = !!app.base;
-    const exactHostVal = app.base?.length + 1 || 's';
+    const exactHostExists = !!app.base,
+        exactHostVal = app.base?.length + 1 || 's';
 
     // All variables are in here
-    let declarationLiteral = `${fnSetLiteral}${app.fn404 ? `h=app.fn404,` : ''}${app.fn404 === false ? 'n={status:404},' : ''}${app.router ? `f=app.router.find.bind(app.router),` : ''}${app.fnPre ? 't=app.fnPre,' : ''}${app.injects ? 'i=app.injects,' : ''}${fnWSLiteral}`;
+    let declarationLiteral = `${fnSetLiteral}${app.fn404 ? `h=app.fn404,` : ''}${app.fn404 === false ? 'n={status:404},' : ''}${app.router ? `f=app.router.find.bind(app.router),` : ''}${app.fnPre ? 't=app.fnPre,' : ''}${injectExists ? 'i=app.injects,' : ''}${fnWSLiteral}`;
     if (declarationLiteral !== '')  
         declarationLiteral = 'const ' + declarationLiteral.slice(0, -1) + ';';
 
-    const fnBody = `${declarationLiteral}return ${isAsync(app.fnPre) ? 'async ' : ''}function(r){${exactHostExists ? '' : "const s=r.url.indexOf('/',12)+1;"}r.query=r.url.indexOf('?',${exactHostVal});r.path=r.query===-1?r.url.substring(${exactHostVal}):r.url.substring(${exactHostVal},r.query);${app.injects ? 'r.inject=i;' : ''}${app.fnPre 
+    const fnBody = `${declarationLiteral}return ${isAsync(app.fnPre) ? 'async ' : ''}function(r){${exactHostExists ? '' : "const s=r.url.indexOf('/',12)+1;"}r.query=r.url.indexOf('?',${exactHostVal});r.path=r.query===-1?r.url.substring(${exactHostVal}):r.url.substring(${exactHostVal},r.query);${app.fnPre 
     ? (app.fnPre.response
         ? `const b=${preHandlerPrefix}t(r);if(b!==undefined)return b;`
         : `if(${preHandlerPrefix}t(r)!==undefined)${returnStatement}`
