@@ -13,7 +13,8 @@ const app = new Router({ base: 'http://localhost:3000' })
     .get('/', () => new Response('Hi'))
     .get('/id/:id', ({ params: { id } }) => new Response(id))
     .get('/:name/dashboard', ({ params: { name } }) => new Response(name))
-    .post('/json', req => req.json().then(toResponse));
+    .post('/json', req => req.json().then(toResponse))
+    .use(404);
 
 const fn = app.fetch;
 console.log(fn.toString());
@@ -51,3 +52,8 @@ test('POST /json', async () => {
 
     expect(await res.json()).toStrictEqual(rnd);
 });
+
+test('404', () => {
+    const res = fn(new Request('http://localhost:3000/path/that/does/not/exists')) as Response;
+    expect(res.status).toBe(404);
+})
