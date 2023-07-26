@@ -89,7 +89,7 @@ function createFetchBody(app: any) {
     if (app.fn404 === false)
         returnStatement += default404;
     else if (app.fn404)
-        returnStatement += ' h(r)';
+        returnStatement += ` h(${callArgs})`;
     returnStatement += ';';
 
     // Search handlers
