@@ -1,3 +1,4 @@
+import { methodsMap, createMethodDecl } from './constants';
 import { StaticRoute } from './types';
 
 type PathHandler = {
@@ -20,7 +21,7 @@ type HandlerObject = {
 // s: Start index of path
 // c: Prefix for other handlers of static routes
 // w: Prefix for websocket data
-const handleRoute = (returnStatement: string, args: string) => `const o=f(r);if(o===null)${returnStatement}r.params=o;return o._(${args});`;
+const handleRoute = (returnStatement: string, args: string) => `r.params=f(r);if(r.params===null)${returnStatement}return r.params._(${args});`;
 
 function isAsync(func: Function) {
     return func && func.constructor.name === 'AsyncFunction';
@@ -41,7 +42,7 @@ function getSwitchHandler(item: PathHandler, args: string) {
 function checkMethods(list: PathHandler[], args: string) {
     if (list.length === 1) {
         const item = list[0], { method } = item;
-        return `if(r.method==='${method}')${getSwitchHandler(item, args)}break;`;
+        return `if(r.method===${methodsMap[method]})${getSwitchHandler(item, args)}break;`;
     }
     return `switch(r.method){${list.map(item => `case'${item.method}':${getSwitchHandler(item, args)}`)}}`;
 }
@@ -50,8 +51,8 @@ function getHandler(path: string, method: string) {
     return `app.static['${path}']['${method}']`;
 }
 
-function searchHandler(routes: StaticRoute) {
-    const hs: HandlerObject = {};
+function searchHandler(routes: StaticRoute): [HandlerObject, string[]] {
+    const hs: HandlerObject = {}, methodSet = new Set<string>;
     let index = 0;
     for (const path in routes) {
         const pathHandlers = routes[path];
@@ -69,10 +70,13 @@ function searchHandler(routes: StaticRoute) {
                 method, index, ws,
             });
             ++index;
+
+            // Get all distinct methods
+            methodSet.add(method);
         }
     }
 
-    return hs;
+    return [hs, Array.from(methodSet)];
 }
 
 const default404 = ' new Response(null,n)';
@@ -93,7 +97,7 @@ function createFetchBody(app: any) {
     returnStatement += ';';
 
     // Search handlers
-    const handlers = searchHandler(routes);
+    const [handlers, methodSet] = searchHandler(routes);
     let fnSetLiteral = '', fnWSLiteral = '';
     for (const path in handlers)
         for (const item of handlers[path]) {
@@ -106,9 +110,12 @@ function createFetchBody(app: any) {
     const paths = Object.keys(routes);
 
     // Switch literal
-    let fnSwitchLiteral = '';
-    for (const path of paths)
-        fnSwitchLiteral += `case'${path.substring(1)}':${checkMethods(handlers[path], callArgs)}`;
+    let fnSwitchLiteral = '', pathDeclareLiteral = '', i = 0;
+    for (const path of paths) {
+        pathDeclareLiteral += `p${i}='${path.substring(1)}',`;
+        fnSwitchLiteral += `case p${i}:${checkMethods(handlers[path], callArgs)}`;
+        ++i;
+    }
 
     const preHandlerPrefix = isAsync(app.fnPre) ? 'await ' : '',
         switchStatement = (fnSwitchLiteral === '' ? '' : `switch(r.path){${fnSwitchLiteral}}`)
@@ -118,9 +125,8 @@ function createFetchBody(app: any) {
         exactHostVal = app.base?.length + 1 || 's';
 
     // All variables are in here
-    let declarationLiteral = `${fnSetLiteral}${app.fn404 ? `h=app.fn404,` : ''}${app.fn404 === false ? 'n={status:404},' : ''}${app.router ? `f=app.router.find.bind(app.router),` : ''}${app.fnPre ? 't=app.fnPre,' : ''}${injectExists ? 'i=app.injects,' : ''}${fnWSLiteral}`;
-    if (declarationLiteral !== '')  
-        declarationLiteral = 'const ' + declarationLiteral.slice(0, -1) + ';';
+    let declarationLiteral = `const ${fnSetLiteral}${createMethodDecl(methodSet)}${pathDeclareLiteral}${app.fn404 ? `h=app.fn404,` : ''}${app.fn404 === false ? 'n={status:404},' : ''}${app.router ? `f=app.router.find.bind(app.router),` : ''}${app.fnPre ? 't=app.fnPre,' : ''}${injectExists ? 'i=app.injects,' : ''}${fnWSLiteral}`;    
+    if (declarationLiteral !== '') declarationLiteral = declarationLiteral.slice(0, -1) + ';';
 
     const fnBody = `${declarationLiteral}return ${isAsync(app.fnPre) ? 'async ' : ''}function(r){${exactHostExists ? '' : "const s=r.url.indexOf('/',12)+1;"}r.query=r.url.indexOf('?',${exactHostVal});r.path=r.query===-1?r.url.substring(${exactHostVal}):r.url.substring(${exactHostVal},r.query);${app.fnPre 
     ? (app.fnPre.response

@@ -1,7 +1,7 @@
 import basicMatch from './basicMatch';
 import optimizedMatch from './optimizedMatch';
 import { Node, FindResult, ParamNode } from './types';
-const methods = ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'CONNECT', 'OPTIONS', 'TRACE', 'PATCH'];
+import { createMethodDecl, methods, methodsMap } from '../constants';
 
 const createNode = <T>(part: string, inert?: Node<T>[]): Node<T> => ({
     part,
@@ -169,12 +169,14 @@ export class Radx<T> {
      * Create a faster find
      */
     composeFind() {
-        const keyExists = [];
+        const keyExists = [], methodsExists = [];
         let index: number;
         for (const key in this.root) {
             index = methods.indexOf(key);
-            if (this.root[key] !== null)
+            if (this.root[key] !== null) {
                 keyExists.push({ key, index });
+                methodsExists.push(key);
+            }
             this.rootList[index] = this.root[key];
         }
 
@@ -185,11 +187,11 @@ export class Radx<T> {
         }
 
         const body = `const ${
-            keyExists.map(({ index }) => `c${index} = router.rootList[${index}]`).join(',')
+            keyExists.map(({ index }) => `c${index} = router.rootList[${index}]`).join(',') + ',' + createMethodDecl(methodsExists, '')
         };return function(r){${
             rootCount > 1 ? `switch(r.method){${
-                keyExists.map(({ key, index }) => `case'${key}':return d(${getFindArgs(index)});`).join('')
-            }default:return null;}` : `return r.method==='${keyExists[0].key}'?d(${getFindArgs(keyExists[0].index)}):null;`
+                keyExists.map(({ key, index }) => `case m${methodsMap[key]}:return d(${getFindArgs(index)});`).join('')
+            }default:return null;}` : `return r.method===${methodsMap[keyExists[0].key]}?d(${getFindArgs(keyExists[0].index)}):null;`
         }}`;
 
         this.find = Function('router', 'd', body)(this, this.normalUsage ? basicMatch : optimizedMatch);

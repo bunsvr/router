@@ -2,6 +2,7 @@ import { Errorlike, GenericServeOptions, Server, ServerWebSocket, TLSOptions, We
 import { Handler, StaticRoute } from './types';
 import Radx from './router';
 import { createFetch, createWSHandler } from './createFetch';
+import { methodsLowerCase as methods } from './constants';
 
 /**
  * An error handler
@@ -61,7 +62,6 @@ interface Options extends Partial<TLSOptions>, Partial<ServerWebSocket<Request>>
     useVM?: boolean;
 }
 
-const methods = ['get', 'head', 'post', 'put', 'delete', 'connect', 'options', 'trace', 'patch'];
 const serverError = { status: 500 };
 const default505 = () => new Response(null, serverError);
 
