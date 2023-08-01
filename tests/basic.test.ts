@@ -1,20 +1,17 @@
 /// <reference types='bun-types' />
 import { test, expect } from 'bun:test';
-import { Router } from '..';
+import { Router, macro } from '..';
 
-const stringify = JSON.stringify,
-    jsonOpts = { headers: { 'Content-Type': 'application/json' } };
-function toResponse(json: any) {
-    return new Response(stringify(json), jsonOpts);
-}
+const stringify = JSON.stringify;
+const toJSON = Response.json;
 
 // Create the function;
 const app = new Router({ base: 'http://localhost:3000' })
-    .get('/', () => new Response('Hi'))
-    .get('/id/:id', ({ params: { id } }) => new Response(id))
-    .get('/:name/dashboard', ({ params: { name } }) => new Response(name))
-    .post('/json', req => req.json().then(toResponse))
-    .use(404);
+    .inject('toJSON', toJSON)
+    .get('/', macro(() => new Response('Hi')))
+    .get('/id/:id', req => new Response(req.params.id))
+    .get('/:name/dashboard', req => new Response(req.params.name))
+    .post('/json', macro(r => r.json().then(toJSON)));
 
 const fn = app.fetch;
 console.log(fn.toString());
@@ -55,5 +52,5 @@ test('POST /json', async () => {
 
 test('404', () => {
     const res = fn(new Request('http://localhost:3000/path/that/does/not/exists')) as Response;
-    expect(res.status).toBe(404);
+    expect(res).toBe(null);
 })

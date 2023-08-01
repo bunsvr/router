@@ -21,7 +21,12 @@ type HandlerObject = {
 // s: Start index of path
 // c: Prefix for other handlers of static routes
 // w: Prefix for websocket data
-const handleRoute = (returnStatement: string, args: string) => `r.params=f(r);if(r.params===null)${returnStatement}return r.params._(${args});`;
+const substrReturnLen = 'return '.length;
+const handleRoute = (returnStatement: string, args: string) => {
+    returnStatement = returnStatement === 'return;' ? 'null' : returnStatement.slice(substrReturnLen, -1);
+
+    return `r.params=f(r);return r.params===null?${returnStatement}:r.params._(${args});`;
+};
 
 function isAsync(func: Function) {
     return func && func.constructor.name === 'AsyncFunction';
@@ -36,6 +41,9 @@ function getWSHandler(wsIndex: number | string) {
 }
 
 function getSwitchHandler(item: PathHandler, args: string) {
+    // @ts-ignore inject macro string
+    if (item.macro) return item.macro;
+
     return item.ws === -1 ? `return c${item.index}(${args});` : getWSHandler(item.ws);
 }
 
@@ -66,8 +74,30 @@ function searchHandler(routes: StaticRoute): [HandlerObject, string[]] {
             if (typeof currentHandler === 'number')
                 ws = currentHandler as number;
 
+            let macro = null;
+            // @ts-ignore detect macro
+            if (currentHandler.isMacro) {
+                macro = currentHandler.toString();
+
+                // Skip space to check for direct return 
+                macro = macro.substring(macro.indexOf(')') + 2);
+
+                // If it is an arrow function
+                if (macro[0] !== '{') {
+                    // Remove arrow and trailing space 
+                    macro = macro.substring(3);
+
+                    // If direct return
+                    if (macro[0] !== '{') {
+                        if (macro.at(-1) !== ';') macro += ';';
+                        macro = 'return ' + macro;
+                    }
+                }
+            }
             hs[path].push({ 
                 method, index, ws,
+                // @ts-ignore macro detection
+                macro
             });
             ++index;
 
@@ -101,6 +131,9 @@ function createFetchBody(app: any) {
     let fnSetLiteral = '', fnWSLiteral = '';
     for (const path in handlers)
         for (const item of handlers[path]) {
+            // @ts-ignore detect macro
+            if (item.macro) continue; 
+
             fnSetLiteral += `c${item.index}=${getHandler(path, item.method)},`;
             if (item.ws !== -1) 
                 fnWSLiteral += `w${item.index}=app.webSocketHandlers[${item.index}],`
@@ -125,7 +158,7 @@ function createFetchBody(app: any) {
         exactHostVal = app.base?.length + 1 || 's';
 
     // All variables are in here
-    let declarationLiteral = `const ${fnSetLiteral}${createMethodDecl(methodSet)}${pathDeclareLiteral}${app.fn404 ? `h=app.fn404,` : ''}${app.fn404 === false ? 'n={status:404},' : ''}${app.router ? `f=app.router.find.bind(app.router),` : ''}${app.fnPre ? 't=app.fnPre,' : ''}${injectExists ? 'i=app.injects,' : ''}${fnWSLiteral}`;    
+    let declarationLiteral = `const ${app.varsLiteral}${fnSetLiteral}${createMethodDecl(methodSet)}${pathDeclareLiteral}${app.fn404 ? `h=app.fn404,` : ''}${app.fn404 === false ? 'n={status:404},' : ''}${app.router ? `f=app.router.find.bind(app.router),` : ''}${app.fnPre ? 't=app.fnPre,' : ''}${injectExists ? 'i=app.injects,' : ''}${fnWSLiteral}`;    
     if (declarationLiteral !== '') declarationLiteral = declarationLiteral.slice(0, -1) + ';';
 
     const fnBody = `${declarationLiteral}return ${isAsync(app.fnPre) ? 'async ' : ''}function(r){${exactHostExists ? '' : "const s=r.url.indexOf('/',12)+1;"}r.query=r.url.indexOf('?',${exactHostVal});r.path=r.query===-1?r.url.substring(${exactHostVal}):r.url.substring(${exactHostVal},r.query);${app.fnPre 
@@ -140,7 +173,7 @@ function createFetchBody(app: any) {
 };
 
 // Deez nuts
-const exec = globalThis.process && await import('vm').then(i => i.runInNewContext);
+const exec = globalThis.process && await import('vm').then(i => i.runInThisContext);
 /**
  * Create fetch function for Deno and Cloudflare workers
  * @param app 
@@ -149,8 +182,8 @@ export function createFetch(app: any) {
     const body = createFetchBody(app);
 
     if (app.useVM && exec)
-        return exec(`(app${app.fn404 === false ? ',Response' : ''}) => {${body}}`)(app, Response);
-    return Function('app', body)(app);
+        return exec(`(app,${app.varsArgsName}) => {${body}}`)(app, ...app.varsValues);
+    return Function('app', ...app.varsArgsName, body)(app, ...app.varsValues);
 }
 
 export function createWSHandler(name: string) {

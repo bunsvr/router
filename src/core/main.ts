@@ -65,9 +65,19 @@ interface Options extends Partial<TLSOptions>, Partial<ServerWebSocket<Request>>
 const serverError = { status: 500 };
 const default505 = () => new Response(null, serverError);
 
+export function macro(fn: Handler<string>) {
+    const fnStr = fn.toString();
+    if (!fnStr.startsWith('()') && !fnStr.startsWith('(r)') && !fnStr.startsWith('(i)') && !fnStr.startsWith('(r, i)'))
+        throw new Error('Macros should have no argument, or one argument named `r` for request, or one argument named `i` for the store, or these two: ' + fnStr);
+
+    // @ts-ignore detect by createFetch
+    fn.isMacro = true;
+    return fn;
+}
 
 // Fix missing types
 export interface Router extends Options { };
+
 /**
  * A Stric router
  * 
@@ -78,11 +88,11 @@ export class Router<I extends Dict<any> = {}> implements Options {
      * Internal dynamic path router 
      */
     readonly router: Radx<Handler>;
-    private readonly static: StaticRoute = {};
+    readonly static: StaticRoute = {};
     // This value is read by the createFetch() method
     fn404: Handler;
-    private injects: Record<string, any>;
-    private fnPre: PreHandler;
+    injects: Record<string, any>;
+    fnPre: PreHandler;
     
     /**
      * Create a router
@@ -116,6 +126,23 @@ export class Router<I extends Dict<any> = {}> implements Options {
 
         if (path.includes(':') || path.includes('*'))
             throw new Error('Dynamic pathname is not allowed for WebSocket!');
+
+        return this;
+    }
+
+    varsLiteral: string = '';
+    varsValues: any[] = [];
+    varsArgsName: string[] = [];
+    private currentVarsIndex = 0;
+
+    /**
+     * Insert a variable into the function
+     */
+    inject(name: string, value: any) {
+        this.varsLiteral += `${name}=v${this.currentVarsIndex},`;
+        this.varsValues.push(value);
+        this.varsArgsName.push('v' + this.currentVarsIndex);
+        ++this.currentVarsIndex;
 
         return this;
     }
@@ -192,6 +219,9 @@ export class Router<I extends Dict<any> = {}> implements Options {
                     method = [method];
 
                 if (path.includes(':') || path.includes('*')) {
+                    if (handler.isMacro)
+                        throw new Error('Macros are not allowed for dynamic routes');
+
                     if (!this.router) {
                         // @ts-ignore
                         this.router = new Radx;

@@ -1,7 +1,5 @@
-import basicMatch from './basicMatch';
-import optimizedMatch from './optimizedMatch';
 import { Node, FindResult, ParamNode } from './types';
-import { createMethodDecl, methods, methodsMap } from '../constants';
+import { methods } from '../constants';
 
 const createNode = <T>(part: string, inert?: Node<T>[]): Node<T> => ({
     part,
@@ -25,10 +23,9 @@ const createParamNode = <T>(paramName: string): ParamNode<T> => ({
     inert: null
 });
 
-export class Radx<T> {
+export class Radx<T = any> {
     root: Record<string, Node<T>> = {};
     rootList: Node<T>[] = new Array(methods.length);
-    normalUsage: boolean = true;
 
     private static regex = {
         static: /:.+?(?=\/|$)/,
@@ -43,7 +40,6 @@ export class Radx<T> {
     add(method: string, path: string, store: T): FindResult<T>[0] {
         if (typeof path !== 'string')
             throw new TypeError('Route path must be a string');
-        const inNormalMode = this.normalUsage;
 
         if (path === '') path = '/';
         else if (path[0] !== '/') path = `/${path}`;
@@ -62,13 +58,12 @@ export class Radx<T> {
         let node: Node<T>;
 
         if (this.root[method] === null) 
-            node = this.root[method] = createNode<T>(inNormalMode ? '/' : ''); 
+            node = this.root[method] = createNode<T>(''); 
         else node = this.root[method];
 
         let paramPartsIndex = 0;
         for (let i = 0; i < inertParts.length; ++i) {
-            let part = inertParts[i];
-            if (!inNormalMode) part = part.substring(1);
+            let part = inertParts[i].substring(1);
 
             if (i > 0) {
                 // Set param on the node
@@ -163,49 +158,7 @@ export class Radx<T> {
         // The final part is static
         if (node.store === null) node.store = store;
         return node.store;
-    }
-
-    /**
-     * Create a faster find
-     */
-    composeFind() {
-        const keyExists = [], methodsExists = [];
-        let index: number;
-        for (const key in this.root) {
-            index = methods.indexOf(key);
-            if (this.root[key] !== null) {
-                keyExists.push({ key, index });
-                methodsExists.push(key);
-            }
-            this.rootList[index] = this.root[key];
-        }
-
-        const rootCount = keyExists.length;
-        if (rootCount === 0) {
-            this.find = function() {return null;};
-            return;
-        }
-
-        const body = `const ${
-            keyExists.map(({ index }) => `c${index} = router.rootList[${index}]`).join(',') + ',' + createMethodDecl(methodsExists, '')
-        };return function(r){${
-            rootCount > 1 ? `switch(r.method){${
-                keyExists.map(({ key, index }) => `case m${methodsMap[key]}:return d(${getFindArgs(index)});`).join('')
-            }default:return null;}` : `return r.method===${methodsMap[keyExists[0].key]}?d(${getFindArgs(keyExists[0].index)}):null;`
-        }}`;
-
-        this.find = Function('router', 'd', body)(this, this.normalUsage ? basicMatch : optimizedMatch);
-    }
-
-    find(r: Request): FindResult<T> | null {
-        const root = this.root[r.method];
-        if (root === null) return null;
-        return basicMatch(root, r.path, 0, r.path.length);
-    }
-}
-
-function getFindArgs(index: number) {
-    return `c${index},r.path,0,r.path.length`;
+    } 
 }
 
 export default Radx;
