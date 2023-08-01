@@ -85,7 +85,7 @@ function composeNode(
             const composeRes = composeNode(node.params.inert, callArgs, handlers, currentPathLen, hasParams);
 
             str += hasStore 
-                ? `else{${composeRes}}`
+                ? composeRes
                 : `if(e===-1)${handlers.defaultReturn};${composeRes}`;
         }
     }
