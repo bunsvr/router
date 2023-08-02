@@ -53,11 +53,6 @@ interface Options extends Partial<TLSOptions>, Partial<ServerWebSocket<Request>>
      * Choose to parse path or not
      */
     parsePath?: boolean;
-
-    /**
-     * Whether to use VM to compile code or the `Function()` constructor
-     */
-    useVM?: boolean;
 }
 
 const serverError = { status: 500 };
