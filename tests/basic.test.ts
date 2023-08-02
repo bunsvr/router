@@ -7,15 +7,13 @@ const toJSON = Response.json;
 
 // Create the function;
 const app = new Router({ base: 'http://localhost:3000' })
-    .inject('toJSON', toJSON)
     .get('/', macro(() => new Response('Hi')))
     .get('/id/:id', req => new Response(req.params.id))
     .get('/:name/dashboard', req => new Response(req.params.name))
-    .post('/json', macro(r => r.json().then(toJSON)));
+    .post('/json', r => r.json().then(toJSON));
 
 const fn = app.fetch;
 console.log(fn.toString());
-console.log(app.router.find.toString());
     
 // GET / should returns 'Hi'
 test('GET /', async () => {
@@ -52,5 +50,5 @@ test('POST /json', async () => {
 
 test('404', () => {
     const res = fn(new Request('http://localhost:3000/path/that/does/not/exists')) as Response;
-    expect(res).toBe(null);
+    expect(res).toBe(undefined);
 })

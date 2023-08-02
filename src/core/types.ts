@@ -21,7 +21,7 @@ export interface Handler<T extends string = string, I extends Dict<any> = {}> {
     /**
      * @param request The current request
      */
-    (request: Request<Params<T>>, store?: Check<I>): any;
+    (request: Request<Params<T>>, store: Check<I>): any;
 }
 
 // Override 

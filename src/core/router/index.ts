@@ -25,7 +25,6 @@ const createParamNode = <T>(paramName: string): ParamNode<T> => ({
 
 export class Radx<T = any> {
     root: Record<string, Node<T>> = {};
-    rootList: Node<T>[] = new Array(methods.length);
 
     private static regex = {
         static: /:.+?(?=\/|$)/,
