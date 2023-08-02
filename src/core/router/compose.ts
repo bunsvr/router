@@ -14,7 +14,7 @@ export default function composeRouter(router: Radx, callArgs: string, returnStat
             fixNode(currentRoot);
 
             // Handlers and injections
-            let handlersRec = { index: 0, defaultReturn: returnStatement, keyIndex: index }, 
+            const handlersRec = { index: 0, defaultReturn: returnStatement, keyIndex: index }, 
                 fnInnerBody = composeNode(currentRoot, callArgs, handlersRec);
 
             // Use as args
@@ -106,7 +106,8 @@ function composeNode(
     hasParams: boolean = false, 
     backupParamIndexExists: boolean = false
 ) {
-    let currentPathLen = plus(fullPartPrevLen, node.part.length), str = '';
+    const currentPathLen = plus(fullPartPrevLen, node.part.length);
+    let str = '';
 
     if (node.part.length === 1) {
         str = `if(r.path.charCodeAt(${fullPartPrevLen})===${node.part.charCodeAt(0)}){`;
@@ -124,11 +125,8 @@ function composeNode(
     }
 
     // Check store, inert, wilcard and params
-    if (node.store !== null) {
-        handlers['c' + handlers.index] = node.store;
+    if (node.store !== null) 
         str += `if(r.path.length===${currentPathLen})${getStoreCall(node.store, handlers.index, callArgs, handlers)}`;
-        ++handlers.index;
-    }
 
     if (node.inert !== null) {
         const keys = Array.from(node.inert.keys());
@@ -145,31 +143,28 @@ function composeNode(
     }
 
     if (node.params !== null) {
-        str += `${backupParamIndexExists ? '' : 'let '}o=${currentPathLen};`;
-        str += (hasParams ? '' : 'let ') + `e=r.path.indexOf('/',o);`;
+        str += `${backupParamIndexExists ? '' : 'let '}t=${currentPathLen};`;
+        str += (hasParams ? '' : 'let ') + `e=r.path.indexOf('/',t);`;
 
         const hasStore = node.params.store !== null;
 
         // End index here
         if (hasStore) {
-            handlers['c' + handlers.index] = node.params.store;
-            const pathSubstr = `r.path${currentPathLen === 0 ? '' : `.substring(o)`}`;
+            const pathSubstr = `r.path${currentPathLen === 0 ? '' : `.substring(t)`}`;
 
             str += `if(e===-1){${hasParams 
                 ? `r.params.${node.params.paramName}=${pathSubstr}`
                 : `r.params={${node.params.paramName}:${pathSubstr}}`       
             };${getStoreCall(node.params.store, handlers.index, callArgs, handlers)}}`;
-
-            ++handlers.index;
         } 
  
-        const pathSubstr = `r.path.substring(o,e)`, addParams = hasParams 
+        const pathSubstr = `r.path.substring(t,e)`, addParams = hasParams 
             ? `r.params.${node.params.paramName}=${pathSubstr}`
             : `r.params={${node.params.paramName}:${pathSubstr}}`; 
 
         if (node.params.inert !== null) {
-            currentPathLen = typeof currentPathLen === 'number' || backupParamIndexExists ? 'e+1' : plus(currentPathLen, 1);
-            const composeRes = composeNode(node.params.inert, callArgs, handlers, currentPathLen, true, true);
+            const newPathLen = typeof currentPathLen === 'number' || backupParamIndexExists ? 'e+1' : plus(currentPathLen, 1);
+            const composeRes = composeNode(node.params.inert, callArgs, handlers, newPathLen, true, true);
 
             str += hasStore 
                 ? addParams + ';' + composeRes
