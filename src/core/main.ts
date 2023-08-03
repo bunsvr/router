@@ -238,15 +238,12 @@ export class Router<I extends Dict<any> = {}> implements Options {
         return this;
     }
 
-    private generatedFetch: any;
     /**
      * Fetch handler. Once the handler is generated no other can be
      * @param request Incoming request
      * @param server Current Bun server
      */
     get fetch(): Handler {
-        if (this.generatedFetch) return this.generatedFetch;
-
         if (this.webSocketHandlers) {
             this.websocket ||= { message: createWSHandler('message') };
             this.websocket.open ||= createWSHandler('open');

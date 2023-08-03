@@ -12,7 +12,7 @@ const app = new Router({ base: 'http://localhost:3000' })
     .get('/:name/dashboard', req => new Response(req.params.name))
     .post('/json', r => r.json().then(toJSON));
 
-const fn = app.fetch;
+const fn = app.fetch as any;
 console.log(fn.toString());
     
 // GET / should returns 'Hi'
@@ -51,4 +51,5 @@ test('POST /json', async () => {
 test('404', () => {
     const res = fn(new Request('http://localhost:3000/path/that/does/not/exists')) as Response;
     expect(res).toBe(undefined);
-})
+});
+

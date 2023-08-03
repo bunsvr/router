@@ -1,10 +1,6 @@
 import Radx from ".";
 import { Node, ParamNode } from "./types";
 
-function handlOf(method: string, map: Record<string, any>) {
-    return `{${map[method]}}`;
-}
-
 export default function composeRouter(router: Radx, callArgs: string, returnStatement: string) {
     const methodsMap = {}, methodsLiterals = [], fnHandlers = []; // Save handlers of methods
     let index = 0;
@@ -25,7 +21,7 @@ export default function composeRouter(router: Radx, callArgs: string, returnStat
                 }
             }
             
-            methodsMap[methodName] = fnInnerBody;  
+            methodsMap[methodName] = '{' + fnInnerBody + '}';  
             ++index;
         }
 
@@ -36,16 +32,16 @@ export default function composeRouter(router: Radx, callArgs: string, returnStat
         fnLiteral = `switch(r.method.charCodeAt(0)){`;
 
         if ('GET' in methodsMap) 
-            fnLiteral += `case ${'G'.charCodeAt(0)}:${handlOf('GET', methodsMap)};`;
+            fnLiteral += `case ${'G'.charCodeAt(0)}:${methodsMap['GET']};`;
 
         if ('HEAD' in methodsMap) 
-            fnLiteral += `case ${'H'.charCodeAt(0)}:${handlOf('HEAD', methodsMap)};`;
+            fnLiteral += `case ${'H'.charCodeAt(0)}:${methodsMap['HEAD']};`;
 
         if ('OPTIONS' in methodsMap) 
-            fnLiteral += `case ${'O'.charCodeAt(0)}:${handlOf('OPTIONS', methodsMap)};`;
+            fnLiteral += `case ${'O'.charCodeAt(0)}:${methodsMap['OPTIONS']};`;
 
         if ('TRACE' in methodsMap) 
-            fnLiteral += `case ${'T'.charCodeAt(0)}:${handlOf('TRACE', methodsMap)};`;
+            fnLiteral += `case ${'T'.charCodeAt(0)}:${methodsMap['TRACE']};`;
 
         const hasPOST = 'POST' in methodsMap, hasPUT = 'PUT' in methodsMap, hasPATCH = 'PATCH' in methodsMap;
         // @ts-ignore
@@ -55,14 +51,14 @@ export default function composeRouter(router: Radx, callArgs: string, returnStat
 
             // Only one exists
             if (total === 1) {
-                if (hasPOST) fnLiteral += `if(r.method.length===4)${handlOf('POST', methodsMap)};`;
-                else if (hasPATCH) fnLiteral += `if(r.method.length===5)${handlOf('PATCH', methodsMap)};`;
-                else fnLiteral += `if(r.method.length===3)${handlOf('PUT', methodsMap)};`;
+                if (hasPOST) fnLiteral += `if(r.method.length===4)${methodsMap['POST']};`;
+                else if (hasPATCH) fnLiteral += `if(r.method.length===5)${methodsMap['PATCH']};`;
+                else fnLiteral += `if(r.method.length===3)${methodsMap['PUT']};`;
             } else { 
                 fnLiteral += `switch(r.method.length){`;
-                if (hasPOST) fnLiteral += `case 4:${handlOf('POST', methodsMap)};`;
-                if (hasPATCH) fnLiteral += `case 5:${handlOf('PATCH', methodsMap)};`;
-                if (hasPUT) fnLiteral += `case 3:${handlOf('PUT', methodsMap)};`;
+                if (hasPOST) fnLiteral += `case 4:${methodsMap['POST']};`;
+                if (hasPATCH) fnLiteral += `case 5:${methodsMap['PATCH']};`;
+                if (hasPUT) fnLiteral += `case 3:${methodsMap['PUT']};`;
 
                 fnLiteral += '}';
             };
@@ -71,14 +67,14 @@ export default function composeRouter(router: Radx, callArgs: string, returnStat
         fnLiteral += '}';
     } else if (methodList.length === 1) {
         switch (methodList[0]) {
-            case 'GET': fnLiteral += `if(r.method.charCodeAt(0)===${'G'.charCodeAt(0)})${handlOf('GET', methodsMap)};`;
-            case 'POST': fnLiteral += `if(r.method.charCodeAt(2)===${'S'.charCodeAt(0)})${handlOf('POST', methodsMap)};`;
-            case 'PUT': fnLiteral += `if(r.method.charCodeAt(1)===${'U'.charCodeAt(0)})${handlOf('PUT', methodsMap)};`;
-            case 'DELETE': fnLiteral += `if(r.method.length===6)${handlOf('DELETE', methodsMap)};`;
-            case 'CONNECT': fnLiteral += `if(r.method.charCodeAt(0)===${'C'.charCodeAt(0)})${handlOf('CONNECT', methodsMap)};`;
-            case 'OPTIONS': fnLiteral += `if(r.method.charCodeAt(0)===${'O'.charCodeAt(0)})${handlOf('OPTIONS', methodsMap)};`;
-            case 'TRACE': fnLiteral += `if(r.method.charCodeAt(0)===${'T'.charCodeAt(0)})${handlOf('TRACE', methodsMap)};`;
-            case 'PATCH': fnLiteral += `if(r.method.charCodeAt(1)===${'A'.charCodeAt(0)})${handlOf('GET', methodsMap)};`;
+            case 'GET': fnLiteral += `if(r.method.charCodeAt(0)===${'G'.charCodeAt(0)})${methodsMap['GET']};`;
+            case 'POST': fnLiteral += `if(r.method.charCodeAt(2)===${'S'.charCodeAt(0)})${methodsMap['POST']};`;
+            case 'PUT': fnLiteral += `if(r.method.charCodeAt(1)===${'U'.charCodeAt(0)})${methodsMap['PUT']};`;
+            case 'DELETE': fnLiteral += `if(r.method.length===6)${methodsMap['DELETE']};`;
+            case 'CONNECT': fnLiteral += `if(r.method.charCodeAt(0)===${'C'.charCodeAt(0)})${methodsMap['CONNECT']};`;
+            case 'OPTIONS': fnLiteral += `if(r.method.charCodeAt(0)===${'O'.charCodeAt(0)})${methodsMap['OPTIONS']};`;
+            case 'TRACE': fnLiteral += `if(r.method.charCodeAt(0)===${'T'.charCodeAt(0)})${methodsMap['TRACE']};`;
+            case 'PATCH': fnLiteral += `if(r.method.charCodeAt(1)===${'A'.charCodeAt(0)})${methodsMap['PATCH']};`;
         }
     }
 
@@ -191,8 +187,12 @@ function composeNode(
 export function fixNode(currentNode: Node<any> | ParamNode<any>, isInert: boolean = false) {
     // Not a parametric node
     if ('part' in currentNode) {
-        // Check whether this node is an inert and not a parametric node
-        if (isInert) currentNode.part = currentNode.part.substring(1);
+        // @ts-ignore Check whether this node is an inert and not a parametric node and is fixed or not
+        if (isInert && !currentNode.isFixed) { 
+            currentNode.part = currentNode.part.substring(1); 
+            // @ts-ignore
+            currentNode.isFixed = true;
+        }
 
         if (currentNode.inert !== null) for (const item of currentNode.inert) 
             fixNode(item[1], true);
