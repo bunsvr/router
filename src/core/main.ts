@@ -1,7 +1,7 @@
 import { Errorlike, GenericServeOptions, Server, ServerWebSocket, TLSOptions, WebSocketHandler } from 'bun';
-import { Handler, StaticRoute } from './types';
+import { Handler } from './types';
 import Radx from './router';
-import { createFetch, createWSHandler } from './createFetch';
+import composeRouter from './router/compose';
 import { methodsLowerCase as methods } from './constants';
 
 /**
@@ -39,13 +39,6 @@ interface Options extends Partial<TLSOptions>, Partial<ServerWebSocket<Request>>
     error?: ErrorHandler;
 
     /**
-     * Fetch handler.
-     * @param request Incoming request
-     * @param server Current Bun server
-     */
-    fetch?: Handler;
-
-    /**
      * Enable inspect mode
      */
     inspector?: boolean;
@@ -57,17 +50,36 @@ interface Options extends Partial<TLSOptions>, Partial<ServerWebSocket<Request>>
     base?: string;
 
     /**
-     * Whether to use VM to compile code or the `Function()` constructor
+     * Choose to parse path or not
      */
-    useVM?: boolean;
+    parsePath?: boolean;
 }
 
 const serverError = { status: 500 };
 const default505 = () => new Response(null, serverError);
 
+export function macro(fn: Handler<string>) {
+    const fnStr = fn.toString();
+    if (!fnStr.startsWith('()') && !fnStr.startsWith('(r)') && !fnStr.startsWith('(r, s)') && !fnStr.startsWith('(_, s)'))
+        throw new Error('Macros should have no argument, or one argument named `r` for request, or one argument named `s` for the store, or these two: ' + fnStr);
+
+    // @ts-ignore detect by createFetch
+    fn.isMacro = true;
+    return fn;
+}
+
+export function createWSHandler(name: string) {
+    const argsList = 'w' + (name === 'close' ? ',c,m' : '');
+    // Optimization: message handler should exist
+    const body = name === 'message' 
+        ? 'return function(w,m){w.data._.message(w,m)}' 
+        : `const n='${name}';return function(${argsList}){if(n in w.data._)w.data._.${name}(${argsList})}`;
+    return Function(body)();
+}
 
 // Fix missing types
-export interface Router extends Options { };
+export interface Router extends Options {};
+
 /**
  * A Stric router
  * 
@@ -77,12 +89,13 @@ export class Router<I extends Dict<any> = {}> implements Options {
     /**
      * Internal dynamic path router 
      */
-    readonly router: Radx<Handler>;
-    private readonly static: StaticRoute = {};
+    router: Radx<Handler>;
     // This value is read by the createFetch() method
     fn404: Handler;
-    private injects: Record<string, any>;
-    private fnPre: PreHandler;
+    injects: Record<string, any>;
+    fnPre: PreHandler;
+
+    handlersRec: Record<string, Record<string, Handler>> = {};
     
     /**
      * Create a router
@@ -94,6 +107,8 @@ export class Router<I extends Dict<any> = {}> implements Options {
             const METHOD = method.toUpperCase();
             this[method] = (path: string, handler: Handler) => this.use(METHOD, path, handler);
         }
+
+        this['all'] = (path: string, handler: Handler) => this.use('ALL', path, handler);
     }
 
     // Handle websocket
@@ -106,16 +121,14 @@ export class Router<I extends Dict<any> = {}> implements Options {
      * @param path 
      * @param handler 
      */
+    // TODO: Makes WS works nicely
     ws<T extends string>(path: T, handler: WebSocketHandler<Request<T>>) {
         if (!this.webSocketHandlers)
             this.webSocketHandlers = [];
 
-        // @ts-ignore this is gonna be a nightmare to maintain
+        // @ts-ignore Should use macros instead
         this.get(path, this.webSocketHandlers.length);
         this.webSocketHandlers.push(handler);
-
-        if (path.includes(':') || path.includes('*'))
-            throw new Error('Dynamic pathname is not allowed for WebSocket!');
 
         return this;
     }
@@ -191,25 +204,22 @@ export class Router<I extends Dict<any> = {}> implements Options {
                 if (!Array.isArray(method))
                     method = [method];
 
-                if (path.includes(':') || path.includes('*')) {
-                    if (!this.router) {
-                        // @ts-ignore
-                        this.router = new Radx;
-                        this.router.normalUsage = false;
-                    }
-                    for (const mth of method)
-                        this.router.add(mth, path, handler);
-                } else {
-                    // Store static route separately
-                    if (!this.static[path])
-                        this.static[path] = {};
-                    for (const mth of method)
-                        this.static[path][mth] = handler;
-                }
-
+                if (!this.handlersRec[path])
+                    this.handlersRec[path] = {}
+                    
+                for (const mth of method)
+                    this.handlersRec[path][mth] = handler;
+                
                 return this;
             }
         }
+    }
+
+    /**
+     * Mount another app to a path
+     */
+    mount(path: string, app: { fetch: (request: Request) => any }) {
+        this.all(path, app.fetch);
     }
 
     /**
@@ -224,33 +234,88 @@ export class Router<I extends Dict<any> = {}> implements Options {
         return this;
     }
 
+    callArgs: string = 'r';
     /**
      * Inject a property
      * @param name
      * @param value 
      */
     store<K extends string, V>(name: K, value: V): Router<I & { [key in K]: V }> {
-        if (!this.injects)
+        if (!this.injects) {
             this.injects = {};
+            this.callArgs += ',s';
+        }
         this.injects[name] = value;
         return this;
     }
 
+    private assignRouter() {
+        if (Object.keys(this.handlersRec).length === 0 || this.router) return;
+        this.router = new Radx;
+
+        for (const path in this.handlersRec) {
+            const store = this.router.add(path);
+            for (const method in this.handlersRec[path])
+                store[method] = this.handlersRec[path][method];
+        }
+    }
+
     /**
-     * Fetch handler.
+     * Fetch handler. 
      * @param request Incoming request
      * @param server Current Bun server
      */
     get fetch(): Handler {
-        if (!this.websocket)
-            this.websocket = { message: createWSHandler('message') };
-        this.websocket.open = createWSHandler('open');
-        this.websocket.drain = createWSHandler('drain');
-        this.websocket.close = createWSHandler('close');
+        this.assignRouter();
 
-        this.router?.composeFind();
+        if (this.webSocketHandlers) {
+            this.websocket ||= { message: createWSHandler('message') };
+            this.websocket.open ||= createWSHandler('open');
+            this.websocket.drain ||= createWSHandler('drain');
+            this.websocket.close ||= createWSHandler('close');
+        }
 
-        return createFetch(this);
+        if (!this.router) return () => {};
+        // @ts-ignore
+        const defaultReturn = this.fn404 === false 
+            ? 'return new Response(null,n)' : (
+                this.fn404 ? `return c_(${this.callArgs})` : 'return'
+            );
+
+        const res = composeRouter(this.router, this.callArgs, defaultReturn);
+
+        if (this.injects) {
+            res.literals.push('s');
+            res.handlers.push(this.injects);
+        }
+
+        if (this.webSocketHandlers) {
+            for (let i = 0; i < this.webSocketHandlers.length; ++i) {
+                res.literals.push('w' + i);
+                res.handlers.push(this.webSocketHandlers[i]);
+            }
+        }
+
+        // @ts-ignore Inject headers
+        if (this.fn404 === false) {
+            res.literals.push('n');
+            res.handlers.push({status: 404});
+        } else if (this.fn404) {
+            res.literals.push('c_');
+            res.handlers.push(this.fn404);
+        }
+        
+
+        if (this.fnPre) {
+            res.literals.push('p');
+            res.handlers.push(this.fnPre);
+
+            if (this.fnPre.response) res.fn = `const b=p(${this.callArgs});if(b!==undefined)return b;` + res.fn;
+            else res.fn = `if(p(${this.callArgs})!==undefined)return;`;
+        }
+
+        res.fn = getPathParser(this) + res.fn + (defaultReturn === 'return' ? '' : defaultReturn);
+        return Function(...res.literals, `return function(${this.callArgs}){${res.fn}}`)(...res.handlers);
     };
 
     /**
@@ -332,6 +397,24 @@ export class Router<I extends Dict<any> = {}> implements Options {
      */
     // @ts-ignore
     patch<T extends string>(path: T, handler: Handler<T, I>): this;
+
+    /**
+     * Add a handler for all methods to tne router
+     * @param path 
+     * @param handler 
+     */
+    // @ts-ignore
+    all<T extends string>(path: T, handler: Handler<T, I>): this;
+}
+
+function getPathParser(app: Router) {
+    const hostExists = !!app.base, 
+        exactHostLen = hostExists ? app.base.length + 1 : 'a';
+    return (hostExists 
+        ? '' 
+        : `const a=r.url.indexOf('/',12)+1;`
+    ) + `r.query=r.url.indexOf('?',${exactHostLen});`
+        + `r.path=r.query===-1?r.url.substring(${exactHostLen}):r.url.substring(${exactHostLen},r.query);`
 }
 
 /**
@@ -340,4 +423,4 @@ export class Router<I extends Dict<any> = {}> implements Options {
 export interface Plugin {
     (app: Router): any
 }
-export { createFetch, Radx };
+export { Radx, composeRouter as compose };

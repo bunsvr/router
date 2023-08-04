@@ -1,18 +1,13 @@
-import { Router } from '../..';
+import { Router, macro } from '../..';
 
-const badRequest = { status: 400 };
+const toRes = Response.json;
 
-const app = new Router()
-    // Add a handler to route '/'
-    .get('/', () => new Response('Hi'))
-    .get('/id/:id', ({ params: { id } }) => new Response(id))
-    .get('/ws', req => server.upgrade(req) || new Response(null, badRequest));
+const fn = new Router({ base: 'http://localhost:3000' })
+    .get('/', macro(() => new Response('Hi')))
+    .post('/json', req => req.json().then(toRes))
+    .get('/id/:id', req => new Response(req.params.id))
+    .use(404)
+    .fetch;
 
-app.websocket = { 
-    message: (ws, msg) => {
-        ws.send(msg);
-    } 
-};
-
-app.ls();
-
+console.log(fn.toString());
+export default { fetch: fn };

@@ -1,24 +1,20 @@
 /// <reference types='bun-types' />
 import { test, expect } from 'bun:test';
-import { Router } from '..';
+import { Router, macro } from '..';
 
-const stringify = JSON.stringify,
-    jsonOpts = { headers: { 'Content-Type': 'application/json' } };
-function toResponse(json: any) {
-    return new Response(stringify(json), jsonOpts);
-}
+const stringify = JSON.stringify;
+const toJSON = Response.json;
 
 // Create the function;
 const app = new Router({ base: 'http://localhost:3000' })
-    .get('/', () => new Response('Hi'))
-    .get('/id/:id', ({ params: { id } }) => new Response(id))
-    .get('/:name/dashboard', ({ params: { name } }) => new Response(name))
-    .post('/json', req => req.json().then(toResponse))
-    .use(404);
+    .get('/', macro(() => new Response('Hi')))
+    .get('/id/:id', req => new Response(req.params.id))
+    .get('/:name/dashboard', req => new Response(req.params.name))
+    .post('/json', r => r.json().then(toJSON))
+    .all('/json', macro(() => new Response('ayo wrong method lol')));
 
-const fn = app.fetch;
+const fn = app.fetch as any;
 console.log(fn.toString());
-console.log(app.router.find.toString());
     
 // GET / should returns 'Hi'
 test('GET /', async () => {
@@ -53,7 +49,11 @@ test('POST /json', async () => {
     expect(await res.json()).toStrictEqual(rnd);
 });
 
-test('404', () => {
-    const res = fn(new Request('http://localhost:3000/path/that/does/not/exists')) as Response;
-    expect(res.status).toBe(404);
-})
+test('404', async () => {
+    let res = fn(new Request('http://localhost:3000/path/that/does/not/exists')) as Response;
+    expect(res).toBe(undefined);
+
+    res = fn(new Request('http://localhost:3000/json')) as Response;
+    expect(await res.text()).toBe('ayo wrong method lol');
+});
+
