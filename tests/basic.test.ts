@@ -10,7 +10,8 @@ const app = new Router({ base: 'http://localhost:3000' })
     .get('/', macro(() => new Response('Hi')))
     .get('/id/:id', req => new Response(req.params.id))
     .get('/:name/dashboard', req => new Response(req.params.name))
-    .post('/json', r => r.json().then(toJSON));
+    .post('/json', r => r.json().then(toJSON))
+    .all('/json', macro(() => new Response('ayo wrong method lol')));
 
 const fn = app.fetch as any;
 console.log(fn.toString());
@@ -48,8 +49,11 @@ test('POST /json', async () => {
     expect(await res.json()).toStrictEqual(rnd);
 });
 
-test('404', () => {
-    const res = fn(new Request('http://localhost:3000/path/that/does/not/exists')) as Response;
+test('404', async () => {
+    let res = fn(new Request('http://localhost:3000/path/that/does/not/exists')) as Response;
     expect(res).toBe(undefined);
+
+    res = fn(new Request('http://localhost:3000/json')) as Response;
+    expect(await res.text()).toBe('ayo wrong method lol');
 });
 

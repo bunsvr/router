@@ -1,5 +1,4 @@
 import { Node, FindResult, ParamNode } from './types';
-import { methods } from '../constants';
 
 const createNode = <T>(part: string, inert?: Node<T>[]): Node<T> => ({
     part,
@@ -24,19 +23,14 @@ const createParamNode = <T>(paramName: string): ParamNode<T> => ({
 });
 
 export class Radx<T = any> {
-    root: Record<string, Node<T>> = {};
+    root: Node<T>;
 
     private static regex = {
         static: /:.+?(?=\/|$)/,
         params: /:.+?(?=\/|$)/g
     };
 
-    constructor() {
-        for (const method of methods)
-            this.root[method] = null;
-    }
-
-    add(method: string, path: string, store: T): FindResult<T>[0] {
+    add(path: string): FindResult<T>[0] {
         if (typeof path !== 'string')
             throw new TypeError('Route path must be a string');
 
@@ -56,9 +50,8 @@ export class Radx<T = any> {
 
         let node: Node<T>;
 
-        if (this.root[method] === null) 
-            node = this.root[method] = createNode<T>(''); 
-        else node = this.root[method];
+        if (!this.root) this.root = createNode<T>(''); 
+        node = this.root;
 
         let paramPartsIndex = 0;
         for (let i = 0; i < inertParts.length; ++i) {
@@ -144,18 +137,18 @@ export class Radx<T = any> {
                     `("${node.params.paramName}") in the same location`
                 );
 
-            if (node.params.store === null) node.params.store = store;
+            if (node.params.store === null) node.params.store = Object.create(null);
             return node.params.store;
         }
 
         if (isWildcard) {
             // The final part is a wildcard
-            if (node.wildcardStore === null) node.wildcardStore = store;
-            return node.wildcardStore
+            if (node.wildcardStore === null) node.wildcardStore = Object.create(null);
+            return node.wildcardStore;
         }
 
         // The final part is static
-        if (node.store === null) node.store = store;
+        if (node.store === null) node.store = Object.create(null);
         return node.store;
     } 
 }

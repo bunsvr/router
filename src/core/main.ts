@@ -94,6 +94,8 @@ export class Router<I extends Dict<any> = {}> implements Options {
     fn404: Handler;
     injects: Record<string, any>;
     fnPre: PreHandler;
+
+    handlersRec: Record<string, Record<string, Handler>> = {};
     
     /**
      * Create a router
@@ -105,6 +107,8 @@ export class Router<I extends Dict<any> = {}> implements Options {
             const METHOD = method.toUpperCase();
             this[method] = (path: string, handler: Handler) => this.use(METHOD, path, handler);
         }
+
+        this['all'] = (path: string, handler: Handler) => this.use('ALL', path, handler);
     }
 
     // Handle websocket
@@ -200,15 +204,22 @@ export class Router<I extends Dict<any> = {}> implements Options {
                 if (!Array.isArray(method))
                     method = [method];
 
-                if (!this.router) 
-                    this.router = new Radx;
+                if (!this.handlersRec[path])
+                    this.handlersRec[path] = {}
                     
                 for (const mth of method)
-                    this.router.add(mth, path, handler);
+                    this.handlersRec[path][mth] = handler;
                 
                 return this;
             }
         }
+    }
+
+    /**
+     * Mount another app to a path
+     */
+    mount(path: string, app: { fetch: (request: Request) => any }) {
+        this.all(path, app.fetch);
     }
 
     /**
@@ -238,12 +249,25 @@ export class Router<I extends Dict<any> = {}> implements Options {
         return this;
     }
 
+    private assignRouter() {
+        if (Object.keys(this.handlersRec).length === 0 || this.router) return;
+        this.router = new Radx;
+
+        for (const path in this.handlersRec) {
+            const store = this.router.add(path);
+            for (const method in this.handlersRec[path])
+                store[method] = this.handlersRec[path][method];
+        }
+    }
+
     /**
-     * Fetch handler. Once the handler is generated no other can be
+     * Fetch handler. 
      * @param request Incoming request
      * @param server Current Bun server
      */
     get fetch(): Handler {
+        this.assignRouter();
+
         if (this.webSocketHandlers) {
             this.websocket ||= { message: createWSHandler('message') };
             this.websocket.open ||= createWSHandler('open');
@@ -291,7 +315,7 @@ export class Router<I extends Dict<any> = {}> implements Options {
         }
 
         res.fn = getPathParser(this) + res.fn + (defaultReturn === 'return' ? '' : defaultReturn);
-        return this.generatedFetch = Function(...res.literals, `return function(${this.callArgs}){${res.fn}}`)(...res.handlers);
+        return Function(...res.literals, `return function(${this.callArgs}){${res.fn}}`)(...res.handlers);
     };
 
     /**
@@ -373,6 +397,14 @@ export class Router<I extends Dict<any> = {}> implements Options {
      */
     // @ts-ignore
     patch<T extends string>(path: T, handler: Handler<T, I>): this;
+
+    /**
+     * Add a handler for all methods to tne router
+     * @param path 
+     * @param handler 
+     */
+    // @ts-ignore
+    all<T extends string>(path: T, handler: Handler<T, I>): this;
 }
 
 function getPathParser(app: Router) {
