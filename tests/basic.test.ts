@@ -6,11 +6,13 @@ const stringify = JSON.stringify;
 
 // Create the function;
 const app = new Router({ base: 'http://localhost:3000' })
-    .get('/', macro(() => new Response('Hi')))
+    .get('/', macro('Hi'))
     .get('/id/:id', req => new Response(req.params.id))
     .get('/:name/dashboard', req => new Response(req.params.name))
     .post('/json', req => Response.json(req.data), { body: 'json' })
-    .all('/json', macro(() => new Response('ayo wrong method lol')));
+    .get('/api/v1/hi', macro('Hi'))
+    .guard('/api/v1', req => req.method === 'GET' ? null : true)
+    .all('/json', macro('ayo wrong method lol'));
 
 const fn = app.fetch as any;
 console.log(fn.toString());
@@ -54,5 +56,8 @@ test('404', async () => {
 
     res = fn(new Request('http://localhost:3000/json')) as Response;
     expect(await res.text()).toBe('ayo wrong method lol');
+
+    res = await fn(new Request('http://localhost:3000/api/v1/hi')) as Response;
+    expect(res).toBeNil();
 });
 
