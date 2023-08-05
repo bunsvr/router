@@ -1,4 +1,5 @@
 import Radx from ".";
+import { BodyParser } from "../types";
 import { Node, ParamNode } from "./types";
 
 export default function composeRouter(router: Radx, callArgs: string, defaultReturn: string) {
@@ -6,9 +7,12 @@ export default function composeRouter(router: Radx, callArgs: string, defaultRet
     const composedBody = composeNode(router.root, callArgs, handlersRec);
 
     for (const itemName in handlersRec) {
+        if (itemName === 'index' || itemName === 'defaultReturn') continue;
         methodsLiterals.push(itemName);
         fnHandlers.push(handlersRec[itemName]);
     }
+
+    console.log(composedBody)
 
     return {
         literals: methodsLiterals,
@@ -36,7 +40,7 @@ function composeNode(
     backupParamIndexExists: boolean = false
 ) {
     const currentPathLen = plus(fullPartPrevLen, node.part.length);
-    let str = '';
+    let str = '', queue = '';
 
     if (node.part.length === 1) {
         str = `if(r.path.charCodeAt(${fullPartPrevLen})===${node.part.charCodeAt(0)}){`;
@@ -54,8 +58,23 @@ function composeNode(
     }
 
     // Check store, inert, wilcard and params
-    if (node.store !== null) 
+    if (node.store !== null) {
+        // Resolve guard
+        if (node.store.GUARD) {
+            const guardFn = node.store.GUARD;
+
+            handlers['c' + handlers.index] = guardFn;
+
+            if (isAsync(guardFn)) {
+                str += `return c${handlers.index}(${callArgs}).then(_=>{if(_===null)${handlers.defaultReturn};`;
+                queue = '});';
+            } else str += `if(c${handlers.index}(${callArgs})===null)${handlers.defaultReturn};`;
+
+            ++handlers.index;
+        }
+
         str += `if(r.path.length===${currentPathLen})${getStoreCall(node.store, callArgs, handlers)}`;
+    }
 
     if (node.inert !== null) {
         const keys = Array.from(node.inert.keys());
@@ -120,9 +139,9 @@ function composeNode(
         hasParams = true;
     }
 
-    if (node.part.length !== 0) str += '}';
+    if (node.part.length !== 0) queue += '}';
 
-    return str;
+    return str + queue;
 }
 
 export function fixNode(currentNode: Node<any> | ParamNode<any>, isInert: boolean = false) {
@@ -142,23 +161,59 @@ export function fixNode(currentNode: Node<any> | ParamNode<any>, isInert: boolea
     } else if (currentNode.inert !== null) fixNode(currentNode.inert, false);
 }
 
-export function getStoreCall(fn: any, callArgs: string, handlers: { index: number }) {
-    let str = '';
-    for (const method in fn) {
-        if (method === 'ALL') continue;
-        str += `if(${checkMethodExpr(method)})${storeCheck(fn[method], handlers, callArgs, handlers.index)}`;
-    }
-    if ('ALL' in fn) str += storeCheck(fn['ALL'], handlers, callArgs, handlers.index);
-    return str;
+function isAsync(fn: any) {
+    if (typeof fn === 'function') return fn.constructor.name === 'AsyncFunction';
+    throw new Error('Guard should be a function, instead recieved: ' + fn);
 }
 
+export function getStoreCall(fn: any, callArgs: string, handlers: { index: number, defaultReturn: string }) {
+    let str = '', queue = '';
+
+    for (const method in fn) {
+        switch (method) {
+            case 'ALL': case 'GUARD': continue;
+            default: str += `if(${checkMethodExpr(method)})${storeCheck(fn[method], handlers, callArgs, handlers.index)}`;
+        }
+    }
+
+    if ('ALL' in fn) str += storeCheck(fn['ALL'], handlers, callArgs, handlers.index);
+    // If guard does exists
+    else if (queue !== '') queue += handlers.defaultReturn;
+
+    return str + queue;
+}
+
+// c: Prefix for normal handlers
+// w: Prefix for WS
+// h: Prefix for wrappers
 export function storeCheck(fn: any, handlers: { index: number }, callArgs: string, index: number) {
     if (typeof fn === 'number') return getWSHandler(fn, callArgs);
-    if (fn.isMacro) return getMacroStr(fn); // Macro
-    
+    if (fn.isMacro) { 
+        if (fn.body && fn.body !== 'none') throw new Error('Macros cannot be used with route options!');
+        return getMacroStr(fn); 
+    }
+
     handlers['c' + handlers.index] = fn;
     ++handlers.index;
-    return `return c${index}(${callArgs});`;
+
+    let str = 'return ', methodCall = `c${index}(${callArgs})`;
+    
+    if (fn.body && fn.body !== 'none') {
+        methodCall = 'return ' + methodCall;
+        str += 'r.';
+
+        switch (fn.body as BodyParser) {
+            case 'text': str += `text`; break;
+            case 'json': str += `json`; break;
+            case 'form': str += 'formData'; break;
+            case 'blob': str += 'blob'; break;
+            case 'buffer': str += 'arrayBuffer'; break;
+            default: throw new Error('Invalid body parser specified: ' + fn.body);
+        }
+
+        str += `().then(_=>{r.data=_;${methodCall}});`
+    } else str += methodCall + ';';
+    return str;
 }
 
 function checkMethodExpr(method: string) {
