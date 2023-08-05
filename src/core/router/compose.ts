@@ -1,4 +1,5 @@
 import Radx from ".";
+import { BodyParser } from "../types";
 import { Node, ParamNode } from "./types";
 
 export default function composeRouter(router: Radx, callArgs: string, defaultReturn: string) {
@@ -6,6 +7,7 @@ export default function composeRouter(router: Radx, callArgs: string, defaultRet
     const composedBody = composeNode(router.root, callArgs, handlersRec);
 
     for (const itemName in handlersRec) {
+        if (itemName === 'index' || itemName === 'defaultReturn') continue;
         methodsLiterals.push(itemName);
         fnHandlers.push(handlersRec[itemName]);
     }
@@ -152,13 +154,37 @@ export function getStoreCall(fn: any, callArgs: string, handlers: { index: numbe
     return str;
 }
 
+// c: Prefix for normal handlers
+// w: Prefix for WS
+// h: Prefix for wrappers
 export function storeCheck(fn: any, handlers: { index: number }, callArgs: string, index: number) {
     if (typeof fn === 'number') return getWSHandler(fn, callArgs);
-    if (fn.isMacro) return getMacroStr(fn); // Macro
-    
+    if (fn.isMacro) { 
+        if (fn.body && fn.body !== 'none') throw new Error('Macros cannot be used with route options!');
+        return getMacroStr(fn); 
+    }
+
     handlers['c' + handlers.index] = fn;
     ++handlers.index;
-    return `return c${index}(${callArgs});`;
+
+    let str = 'return ', methodCall = `c${index}(${callArgs})`;
+    
+    if (fn.body && fn.body !== 'none') {
+        methodCall = 'return ' + methodCall;
+        str += 'r.';
+
+        switch (fn.body as BodyParser) {
+            case 'text': str += `text`; break;
+            case 'json': str += `json`; break;
+            case 'form': str += 'formData'; break;
+            case 'blob': str += 'blob'; break;
+            case 'buffer': str += 'arrayBuffer'; break;
+            default: throw new Error('Invalid body parser specified: ' + fn.body);
+        }
+
+        str += `().then(_=>{r.data=_;${methodCall}});`
+    } else str += methodCall + ';';
+    return str;
 }
 
 function checkMethodExpr(method: string) {

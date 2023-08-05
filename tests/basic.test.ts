@@ -3,14 +3,13 @@ import { test, expect } from 'bun:test';
 import { Router, macro } from '..';
 
 const stringify = JSON.stringify;
-const toJSON = Response.json;
 
 // Create the function;
 const app = new Router({ base: 'http://localhost:3000' })
     .get('/', macro(() => new Response('Hi')))
     .get('/id/:id', req => new Response(req.params.id))
     .get('/:name/dashboard', req => new Response(req.params.name))
-    .post('/json', r => r.json().then(toJSON))
+    .post('/json', req => Response.json(req.data), { body: 'json' })
     .all('/json', macro(() => new Response('ayo wrong method lol')));
 
 const fn = app.fetch as any;
