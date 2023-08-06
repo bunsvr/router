@@ -346,13 +346,9 @@ export class Router<I extends Dict<any> = {}> {
 const serverError = { status: 500 };
 const default505 = () => new Response(null, serverError);
 
-export function macro(fn: Handler<string> | string) {
-    if (typeof fn === 'string') return Function(`return function(){return new Response('${fn}')}`)() as () => Response;
-
-    const fnStr = fn.toString();
-    if (!fnStr.startsWith('()') && !fnStr.startsWith('(r)') && !fnStr.startsWith('(r, s)') && !fnStr.startsWith('(_, s)'))
-        throw new Error('Macros should have no argument, or one argument named `r` for request, or one argument named `s` for the store, or these two: ' + fnStr);
-
+export function macro(fn: Handler<string> | string): Handler<string> {
+    if (typeof fn === 'string') return macro(Function(`return()=>new Response('${fn}')`)());
+ 
     // @ts-ignore detect by createFetch
     fn.isMacro = true;
     return fn;

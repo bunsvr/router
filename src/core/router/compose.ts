@@ -4,6 +4,7 @@ import { Node, ParamNode } from "./types";
 
 export default function composeRouter(router: Radx, callArgs: string, defaultReturn: string) {
     const handlersRec = { index: 0, defaultReturn }, methodsLiterals = [], fnHandlers = []; // Save handlers of methods
+    fixNode(router.root);
     const composedBody = composeNode(router.root, callArgs, handlersRec);
 
     for (const itemName in handlersRec) {
@@ -11,8 +12,6 @@ export default function composeRouter(router: Radx, callArgs: string, defaultRet
         methodsLiterals.push(itemName);
         fnHandlers.push(handlersRec[itemName]);
     }
-
-    console.log(composedBody)
 
     return {
         literals: methodsLiterals,
@@ -82,7 +81,7 @@ function composeNode(
             str += `if(r.path.charCodeAt(${currentPathLen})===${keys[0]}){${
                 composeNode(
                     node.inert.get(keys[0]), callArgs, handlers, 
-                    node.part.length === 0 ? currentPathLen : plus(currentPathLen, 1), 
+                    plus(currentPathLen, 1), 
                     hasParams, backupParamIndexExists
                 )
             }}`;
@@ -91,7 +90,7 @@ function composeNode(
             for (const key of keys) 
                 str += `case ${key}:{${composeNode(
                     node.inert.get(key), callArgs, handlers, 
-                    node.part.length === 0 ? currentPathLen : plus(currentPathLen, 1), 
+                    plus(currentPathLen, 1), 
                     hasParams, backupParamIndexExists
                 )};break}` 
             str += '}';
@@ -238,12 +237,12 @@ function getMacroStr(handler: any) {
     let macro = handler.toString();
 
     // Skip space to check for direct return 
-    macro = macro.substring(macro.indexOf(')') + 2);
+    macro = macro.substring(macro.indexOf(')') + 1).trimStart();
 
     // If it is an arrow function
     if (macro[0] !== '{') {
         // Remove arrow and trailing space 
-        macro = macro.substring(3);
+        macro = macro.substring(2).trimStart();
 
         // If direct return
         if (macro[0] !== '{') {
