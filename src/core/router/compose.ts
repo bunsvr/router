@@ -71,8 +71,9 @@ function composeNode(
 
             ++handlers.index;
         }
-
-        str += `if(r.path.length===${currentPathLen})${getStoreCall(node.store, callArgs, handlers)}`;
+        // If only GUARD exists don't handle
+        if (Object.keys(node.store).length > 1 || !node.store.GUARD)
+            str += `if(r.path.length===${currentPathLen}){${getStoreCall(node.store, callArgs, handlers)}}`;
     }
 
     if (node.inert !== null) {

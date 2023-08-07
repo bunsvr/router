@@ -2,7 +2,7 @@
 import { test, expect } from 'bun:test';
 import { Router, macro } from '..';
 
-const stringify = JSON.stringify;
+const predefinedBody = {hi:'there'};
 
 // Create the function;
 const app = new Router({ base: 'http://localhost:3000' })
@@ -10,6 +10,7 @@ const app = new Router({ base: 'http://localhost:3000' })
     .get('/id/:id', req => new Response(req.params.id))
     .get('/:name/dashboard', req => new Response(req.params.name))
     .post('/json', req => Response.json(req.data), { body: 'json' })
+    .get('/json', () => Response.json(predefinedBody))
     .get('/api/v1/hi', macro('Hi'))
     .guard('/api/v1', req => req.method === 'GET' ? null : true)
     .all('/json', macro('ayo wrong method lol'));
@@ -44,7 +45,7 @@ test('POST /json', async () => {
     const rnd = { value: Math.round(Math.random()) },
         res = await fn(new Request('http://localhost:3000/json', {
             method: 'POST',
-            body: stringify(rnd)
+            body: JSON.stringify(rnd)
         }));
 
     expect(await res.json()).toStrictEqual(rnd);
@@ -54,7 +55,9 @@ test('404', async () => {
     let res = fn(new Request('http://localhost:3000/path/that/does/not/exists')) as Response;
     expect(res).toBe(undefined);
 
-    res = fn(new Request('http://localhost:3000/json')) as Response;
+    res = fn(new Request('http://localhost:3000/json', {
+        method: 'PUT'
+    })) as Response;
     expect(await res.text()).toBe('ayo wrong method lol');
 
     res = await fn(new Request('http://localhost:3000/api/v1/hi')) as Response;

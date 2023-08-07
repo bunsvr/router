@@ -55,8 +55,8 @@ interface Options extends Partial<TLSOptions>, Partial<ServerWebSocket<Request>>
     parsePath?: boolean;
 }
 
-type HttpMethod = 'get' | 'post' | 'put' | 'delete' | 'connect' | 'options' | 'trace' | 'patch' | 'all';
-type RouterMethods<I extends Dict<any>> = {
+type HttpMethod = 'get' | 'post' | 'put' | 'delete' | 'connect' | 'options' | 'trace' | 'patch' | 'all' | 'guard';
+export type RouterMethods<I extends Dict<any>> = {
     [K in HttpMethod]: <T extends string, O extends { body: BodyParser } = { body: 'none' }>(
         path: T, handler: O extends { body: infer B } 
             ? (B extends BodyParser ? Handler<T, I, B> : Handler<T, I>)
@@ -68,18 +68,22 @@ type RouterMethods<I extends Dict<any>> = {
 /**
  * Specific plugin for router
  */
-export interface Plugin<I extends Dict<any> = {}> {
-    (app: Router): Router<I>;
+export interface Plugin<I extends Dict<any> = Dict<any>> {
+    (app: Router<I>): any;
 }
 
-export interface Router<I extends Dict<any> = {}> extends Options, RouterMethods<I> {};
+type RouterPlugin<I> = Plugin<I> | {
+    plugin: Plugin<I>
+};
+
+export interface Router<I> extends Options, RouterMethods<I> {};
 
 /**
  * A Stric router
  * 
  * Note: This will run *only* the first route found
  */
-export class Router<I extends Dict<any> = {}> {
+export class Router<I extends Dict<any> = Dict<any>> {
     /**
      * Internal dynamic path router 
      */
@@ -96,9 +100,8 @@ export class Router<I extends Dict<any> = {}> {
      */
     constructor(opts: Options = {}) {
         Object.assign(this, opts);
-        const allMethods = [...methods, 'all'];
 
-        for (const method of allMethods) {
+        for (const method of methods) {
             const METHOD = method.toUpperCase();
             this[method] = (path: string, handler: Handler, opts: any) => {
                 if (opts) for (const prop in opts) 
@@ -126,13 +129,6 @@ export class Router<I extends Dict<any> = {}> {
         this.webSocketHandlers.push(handler);
 
         return this;
-    }
-
-    /**
-     * Guarding response. Return null if passes
-     */
-    guard<T extends string>(path: T, handler: Handler<T, I>) {
-        return this.use('GUARD', path, handler);
     }
 
     /**
@@ -214,13 +210,39 @@ export class Router<I extends Dict<any> = {}> {
                 if (!Array.isArray(method))
                     method = [method];
 
-                if (!this.handlersRec[path])
-                    this.handlersRec[path] = {}
+                if (!this.handlersRec[path]) this.handlersRec[path] = {};
                     
                 for (const mth of method)
                     this.handlersRec[path][mth] = handler;
                 
                 return this;
+        }
+    }
+
+    /**
+     * Register this router as a plugin, which mount all routes, storage and injects (can be overritten)
+     */
+    plugin(app: Router) {
+        let o: any;
+        for (const path in this.handlersRec) {
+            o = this.handlersRec[path];
+
+            if (path in app.handlersRec) Object.assign(app.handlersRec[path], o);
+            else app.handlersRec[path] = o;
+        }
+
+        if (this.injects) {
+            if (app.injects) Object.assign(app.injects, this.injects);
+
+            else for (const key in this.injects) 
+                app.inject(key, this.injects[key]);
+        }
+
+        if (this.storage) {
+            if (app.storage) Object.assign(app.storage, this.storage);
+
+            else for (const key in this.storage) 
+                app.store(key, this.storage[key]);
         }
     }
 
@@ -235,11 +257,11 @@ export class Router<I extends Dict<any> = {}> {
      * Add a plugin
      * @param plugin 
      */
-    plug(plugin: Plugin | {
-        plugin: Plugin
-    }) {
-        if (typeof plugin === 'object') plugin.plugin(this);
-        else plugin(this);
+    plug(...plugins: RouterPlugin<I>[]) {
+        for (const plugin of plugins) {
+            if (typeof plugin === 'object') plugin.plugin(this);
+            else plugin(this);
+        }
         return this;
     }
 

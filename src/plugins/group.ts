@@ -1,13 +1,14 @@
-import { Plugin, Router } from "../core/main";
+import { Plugin, Router, RouterMethods } from "../core/main";
 import { Handler } from "../core/types";
+import { methodsLowerCase as methods } from "../core/constants";
 
-const methods = ["get", "head", "post", "put", "delete", "connect", "options", "trace", "patch"];
+export interface Group<I> extends RouterMethods<I> {}
 
 /**
  * A routes group. Can be used as a plugin
  */
-export class Group {
-    private record: [method: string, path: string, handler: Handler][];
+export class Group<I extends Dict<any> = Dict<any>> {
+    private record: any[][];
     private plugins: Plugin[];
 
     /**
@@ -21,15 +22,16 @@ export class Group {
         this.record = [];
         this.plugins = [];
 
-        for (const method of methods) {
-            const METHOD = method.toUpperCase();
-            this[method] = (path: string, handler: Handler) => {
-                // Special cases
-                if (this.root !== '/') path = this.root + path;
+        for (const method of methods) this[method] = (path: string, handler: Handler, opts: any) => {
+            // Special cases
+            if (this.root !== '/') path = this.root + path;
+            if (path.at(-1) === '/') path = path.slice(0, -1);
 
-                this.record.push([METHOD, path, handler]);
-                return this;
-            }
+            const args = [method, path, handler] as any[];
+            if (opts) args.push(opts);
+
+            this.record.push(args);
+            return this;
         }
     }
 
@@ -37,8 +39,8 @@ export class Group {
      * Add a plugin
      * @param plugin 
      */
-    plug(plugin: Plugin) {
-        this.plugins.push(plugin);
+    plug(...plugins: Plugin[]) {
+        this.plugins.push(...plugins);
         return this;
     }
 
@@ -46,81 +48,7 @@ export class Group {
      * Get the plugin
      */
     plugin(app: Router) {
-        for (const item of this.record)
-            app.use(...item);
-        for (const item of this.plugins)    
-            app.plug(item);
+        for (const item of this.record) app[item[0]](...item.slice(1));
+        for (const item of this.plugins) app.plug(item);
     }
-
-    /**
-     * Add a GET method handler to the router 
-     * @param path 
-     * @param handler 
-     */
-    // @ts-ignore
-    get<T extends string>(path: T, handler: Handler<T>): this;
-
-    /**
-     * Add a HEAD method handler to the router
-     * @param path 
-     * @param handler 
-     */
-    // @ts-ignore
-    head<T extends string>(path: T, handler: Handler<T>): this;
-
-    /**
-     * Add a POST method handler to the router
-     * @param path 
-     * @param handler 
-     */
-    // @ts-ignore
-    post<T extends string>(path: T, handler: Handler<T>): this;
-
-    /**
-     * Add a PUT method handler to the router
-     * @param path 
-     * @param handler 
-     */
-    // @ts-ignore
-    put<T extends string>(path: T, handler: Handler<T>): this;
-
-    /**
-     * Add a DELETE method handler to tne router
-     * @param path 
-     * @param handler 
-     */
-    // @ts-ignore
-    delete<T extends string>(path: T, handler: Handler<T>): this;
-
-    /**
-     * Add a CONNECT method handler to tne router
-     * @param path 
-     * @param handler 
-     */
-    // @ts-ignore
-    connect<T extends string>(path: T, handler: Handler<T>): this;
-
-    /**
-     * Add a OPTIONS method handler to tne router
-     * @param path 
-     * @param handler 
-     */
-    // @ts-ignore
-    options<T extends string>(path: T, handler: Handler<T>): this;
-
-    /**
-     * Add a TRACE method handler to tne router
-     * @param path 
-     * @param handler 
-     */
-    // @ts-ignore
-    trace<T extends string>(path: T, handler: Handler<T>): this;
-
-    /**
-     * Add a PATCH method handler to tne router
-     * @param path 
-     * @param handler 
-     */
-    // @ts-ignore
-    patch<T extends string>(path: T, handler: Handler<T>): this;
 }

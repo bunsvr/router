@@ -36,15 +36,15 @@ export interface Handler<T extends string = string, I extends Dict<any> = {}, B 
 
 // Override 
 declare global {
-    interface Request<T = any, B = any> {
+    interface Request<P = any, D = any> {
         /**
          * Parsed request body
          */
-        data: B;
+        data: D;
         /**
          * Parsed request parameter with additional properties if specified
          */
-        params: T;
+        params: P;
         /**
          * Request query start index (include `?`).
          */
