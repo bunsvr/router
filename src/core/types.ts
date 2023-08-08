@@ -25,6 +25,15 @@ type ParserType<B extends BodyParser> = B extends 'text' ? string : (
 );
 
 /**
+ * WebSocket data
+ */
+export interface WSContext<T extends string = string, I extends Dict<any> = never> {
+    request: Request<T>;
+    store: Check<I>;
+}
+
+
+/**
  * A route handler function
  */
 export interface Handler<T extends string = string, I extends Dict<any> = {}, B extends BodyParser = any> {

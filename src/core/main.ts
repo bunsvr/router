@@ -1,8 +1,8 @@
 import { Errorlike, GenericServeOptions, Server, ServerWebSocket, TLSOptions, WebSocketHandler } from 'bun';
-import { BodyParser, Handler } from './types';
+import { BodyParser, Handler, WSContext } from './types';
 import Radx from './router';
 import composeRouter from './router/compose';
-import { methodsLowerCase as methods } from './constants';
+import { convert, methodsLowerCase as methods } from './constants';
 
 /**
  * An error handler
@@ -120,7 +120,7 @@ export class Router<I extends Dict<any> = Dict<any>> {
      * @param path 
      * @param handler 
      */
-    ws<T extends string>(path: T, handler: WebSocketHandler<Request<T>>) {
+    ws<T extends string>(path: T, handler: WebSocketHandler<WSContext<T, I>>) {
         if (!this.webSocketHandlers)
             this.webSocketHandlers = [];
 
@@ -207,6 +207,8 @@ export class Router<I extends Dict<any> = Dict<any>> {
             default:
                 // Normal parsing
                 let [method, path, handler] = args;
+                path = convert(path);
+
                 if (!Array.isArray(method))
                     method = [method];
 

@@ -1,6 +1,7 @@
 import { Plugin, Router, RouterMethods } from "../core/main";
-import { Handler } from "../core/types";
-import { methodsLowerCase as methods } from "../core/constants";
+import type { Handler, WSContext } from "../core/types";
+import { convert, methodsLowerCase as methods } from "../core/constants";
+import type { WebSocketHandler } from "bun";
 
 export interface Group<I> extends RouterMethods<I> {}
 
@@ -10,6 +11,15 @@ export interface Group<I> extends RouterMethods<I> {}
 export class Group<I extends Dict<any> = Dict<any>> {
     private record: any[][];
     private plugins: Plugin[];
+    private wsRecord: any[][];
+
+    /**
+     * Handle WebSocket
+     */ 
+    ws<T extends string>(path: T, handler: WebSocketHandler<WSContext<T, I>>) {
+        // Add a WebSocket handler
+        this.wsRecord.push([path, handler]);
+    }
 
     /**
      * Create a new routes group
@@ -20,12 +30,13 @@ export class Group<I extends Dict<any> = Dict<any>> {
             root = root.slice(0, -1);
         this.root = root;
         this.record = [];
+        this.wsRecord = [];
         this.plugins = [];
 
         for (const method of methods) this[method] = (path: string, handler: Handler, opts: any) => {
             // Special cases
             if (this.root !== '/') path = this.root + path;
-            if (path.at(-1) === '/') path = path.slice(0, -1);
+            path = convert(path);
 
             const args = [method, path, handler] as any[];
             if (opts) args.push(opts);
@@ -50,5 +61,6 @@ export class Group<I extends Dict<any> = Dict<any>> {
     plugin(app: Router) {
         for (const item of this.record) app[item[0]](...item.slice(1));
         for (const item of this.plugins) app.plug(item);
+        for (const item of this.wsRecord) app.ws(item[0], item[1]);
     }
 }
