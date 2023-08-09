@@ -27,7 +27,7 @@ test('GET /', async () => {
 // Dynamic path test
 test('GET /id/:id', async () => {
     const randomNum = String(Math.round(Math.random() * 101)),
-        res = fn(new Request('http://localhost:3000/id/' + randomNum));
+        res = fn(new Request('http://localhost:3000/id/' + randomNum + '?param'));
     
     expect(await res.text()).toBe(randomNum);
 });
