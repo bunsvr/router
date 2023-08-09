@@ -100,6 +100,7 @@ export class Router<I extends Dict<any> = Dict<any>> {
      */
     constructor(opts: Options = {}) {
         Object.assign(this, opts);
+        if (!('parsePath' in opts)) this.parsePath = true;
 
         for (const method of methods) {
             const METHOD = method.toUpperCase();
@@ -299,6 +300,7 @@ export class Router<I extends Dict<any> = Dict<any>> {
      * @param server Current Bun server
      */
     get fetch(): Handler {
+        if (!this.parsePath && !this.base) throw new Error('Base needs to be provided if `parsePath` is set to true');
         this.assignRouter();
 
         if (this.webSocketHandlers) {
@@ -315,7 +317,7 @@ export class Router<I extends Dict<any> = Dict<any>> {
                 this.fn404 ? `return c_(${this.callArgs})` : 'return'
             );
 
-        const res = composeRouter(this.router, this.callArgs, defaultReturn);
+        const res = composeRouter(this.router, this.callArgs, defaultReturn, this.parsePath, this.parsePath ? 0 : this.base.length + 1);
 
         if (this.storage) {
             res.literals.push('s');
@@ -390,11 +392,13 @@ function createWSHandler(name: string) {
 function getPathParser(app: Router) {
     const hostExists = !!app.base, 
         exactHostLen = hostExists ? app.base.length + 1 : 'a';
-    return (hostExists 
-        ? '' 
-        : `const a=r.url.indexOf('/',12)+1;`
-    ) + `r.query=r.url.indexOf('?',${exactHostLen});`
-        + `r.path=r.query===-1?r.url.substring(${exactHostLen}):r.url.substring(${exactHostLen},r.query);`
+
+    if (app.parsePath)
+        return (hostExists ? '' : `const a=r.url.indexOf('/',12)+1;`) 
+            + `r.query=r.url.indexOf('?',${exactHostLen});`
+            + `r.path=r.query===-1?r.url.substring(${exactHostLen}):r.url.substring(${exactHostLen},r.query);`;
+    
+    return `r.query=r.url.indexOf('?',${exactHostLen});if(r.query===-1)r.query=r.url.length;`;
 }
 
 export { Radx, composeRouter as compose };

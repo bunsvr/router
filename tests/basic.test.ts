@@ -5,7 +5,7 @@ import { Router, macro } from '..';
 const predefinedBody = {hi:'there'};
 
 // Create the function;
-const app = new Router({ base: 'http://localhost:3000' })
+const app = new Router({ base: 'http://localhost:3000', parsePath: false })
     .get('/', macro('Hi'))
     .get('/id/:id', req => new Response(req.params.id))
     .get('/:name/dashboard', req => new Response(req.params.name))
