@@ -112,7 +112,9 @@ function composeNode(
 
         // End index here
         if (hasStore) {
-            const pathSubstr = `${handlers.pathStr}${currentPathLen === 0 ? '' : `.substring(t)`}`;
+            const pathSubstr = `${handlers.pathStr}${currentPathLen === 0 ? (
+                handlers.parsePath ? '' : '.substring(0,r.query)'
+            ) : `.substring(t${handlers.parsePath ? '' : ',r.query'})`}`;
 
             str += `if(e===-1){${hasParams 
                 ? `r.params.${node.params.paramName}=${pathSubstr}`
