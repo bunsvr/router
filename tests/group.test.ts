@@ -1,11 +1,12 @@
 import { test, expect } from 'bun:test';
 import { Router, Group, macro } from '..';
 
-const base = 'http://localhost:3000';
+const base = 'http://localhost:3000', forbid = { status: 403 };
 
 const basic = new Group().get('/', macro('Hi client!')),
     admin = new Group('/admin')
         .guard('/', req => req.method === 'POST' || null)
+        .reject('/', () => new Response('Access denied', forbid))
         .post('/json', req => Response.json(req.data), { body: 'json' });
 
 const app = new Router({ base }).plug(basic, admin).use(404), 
@@ -13,7 +14,7 @@ const app = new Router({ base }).plug(basic, admin).use(404),
 console.log(fn.toString());
 
 test('Basic', async () => {
-    const res = fn(new Request(base + '/'), undefined);
+    const res = fn(new Request(base + '/'));
     expect(await res.text()).toBe('Hi client!');
 });
 
@@ -24,15 +25,16 @@ test('JSON', async () => {
         new Request(base + '/admin/json', {
             method: 'POST',
             body: JSON.stringify(data)
-        }), undefined
+        })
     );
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual(data);
 });
 
-test('404', () => {
-    const res = fn(new Request(base + '/admin/json'), undefined);
+test('Forbidden', async () => {
+    const res = fn(new Request(base + '/admin/json'));
 
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(403);
+    expect(await res.text()).toBe('Access denied');
 });

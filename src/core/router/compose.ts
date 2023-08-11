@@ -7,7 +7,7 @@ export default function composeRouter(router: Radx, callArgs: string, defaultRet
         index: 0, defaultReturn, 
         pathStr: parsePath ? 'r.path' : 'r.url',
         pathLen: parsePath ? 'r.path.length' : 'r.query',
-        parsePath
+        parsePath, rejectIndex: 0
     }, methodsLiterals = [], fnHandlers = []; // Save handlers of methods
 
     fixNode(router.root);
@@ -39,7 +39,7 @@ function plus(num: string | number, val: number) {
 function composeNode(
     node: Node<any>, 
     callArgs: string,
-    handlers: Record<string, any> & { index: number, defaultReturn: string, pathStr: string, pathLen: string | null, parsePath: boolean }, 
+    handlers: Record<string, any> & { index: number, rejectIndex: number, defaultReturn: string, pathStr: string, pathLen: string | null, parsePath: boolean }, 
     fullPartPrevLen: number | string = 0,
     hasParams: boolean = false, 
     backupParamIndexExists: boolean = false
@@ -66,14 +66,21 @@ function composeNode(
     if (node.store !== null) {
         // Resolve guard
         if (node.store.GUARD) {
-            const guardFn = node.store.GUARD;
+            let returnStatement = handlers.defaultReturn;
+            // Check if a reject does exists to customize handling
+            if (node.store.REJECT) {
+                handlers['c_' + handlers.rejectIndex] = node.store.REJECT;
+                returnStatement = `return c_${handlers.rejectIndex}(${callArgs})`;
+                ++handlers.rejectIndex;
+            }
 
+            const guardFn = node.store.GUARD;
             handlers['c' + handlers.index] = guardFn;
 
             if (isAsync(guardFn)) {
-                str += `return c${handlers.index}(${callArgs}).then(_=>{if(_===null)${handlers.defaultReturn};`;
+                str += `return c${handlers.index}(${callArgs}).then(_=>{if(_===null)${returnStatement};`;
                 queue = '});';
-            } else str += `if(c${handlers.index}(${callArgs})===null)${handlers.defaultReturn};`;
+            } else str += `if(c${handlers.index}(${callArgs})===null)${returnStatement};`;
 
             ++handlers.index;
         }
@@ -179,7 +186,7 @@ export function getStoreCall(fn: any, callArgs: string, handlers: { index: numbe
 
     for (const method in fn) {
         switch (method) {
-            case 'ALL': case 'GUARD': continue;
+            case 'ALL': case 'GUARD': case 'REJECT': continue;
             default: str += `if(${checkMethodExpr(method)})${storeCheck(fn[method], handlers, callArgs, handlers.index)}`;
         }
     }
@@ -192,6 +199,7 @@ export function getStoreCall(fn: any, callArgs: string, handlers: { index: numbe
 }
 
 // c: Prefix for normal handlers
+// c_: Prefix for 404 handlers
 // w: Prefix for WS
 // h: Prefix for wrappers
 export function storeCheck(fn: any, handlers: { index: number }, callArgs: string, index: number) {

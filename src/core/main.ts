@@ -60,7 +60,7 @@ interface Options extends Partial<TLSOptions>, Partial<ServerWebSocket<Request>>
     strict?: boolean;
 }
 
-type HttpMethod = 'get' | 'post' | 'put' | 'delete' | 'connect' | 'options' | 'trace' | 'patch' | 'all' | 'guard';
+type HttpMethod = 'get' | 'post' | 'put' | 'delete' | 'connect' | 'options' | 'trace' | 'patch' | 'all' | 'guard' | 'reject';
 export type RouterMethods<I extends Dict<any>> = {
     [K in HttpMethod]: <T extends string, O extends { body: BodyParser } = { body: 'none' }>(
         path: T, handler: O extends { body: infer B } 
@@ -305,7 +305,7 @@ export class Router<I extends Dict<any> = Dict<any>> {
      * @param request Incoming request
      * @param server Current Bun server
      */
-    get fetch(): Handler {
+    get fetch(): (req: Request) => any {
         if (!this.parsePath && !this.base) throw new Error('Base needs to be provided if `parsePath` is set to true');
         this.assignRouter();
 
