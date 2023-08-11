@@ -1,8 +1,8 @@
 import { Errorlike, GenericServeOptions, Server, ServerWebSocket, TLSOptions, WebSocketHandler } from 'bun';
-import { BodyParser, Handler } from './types';
+import { BodyParser, Handler, WSContext } from './types';
 import Radx from './router';
 import composeRouter from './router/compose';
-import { methodsLowerCase as methods } from './constants';
+import { convert, methodsLowerCase as methods } from './constants';
 
 /**
  * An error handler
@@ -50,13 +50,18 @@ interface Options extends Partial<TLSOptions>, Partial<ServerWebSocket<Request>>
     base?: string;
 
     /**
-     * Choose to parse path or not
+     * Choose to parse path or not, must be used with `base`
      */
     parsePath?: boolean;
+
+    /**
+     * Whether to match query or not, must be used with `base` and `parsePath`
+     */
+    strict?: boolean;
 }
 
-type HttpMethod = 'get' | 'post' | 'put' | 'delete' | 'connect' | 'options' | 'trace' | 'patch' | 'all';
-type RouterMethods<I extends Dict<any>> = {
+type HttpMethod = 'get' | 'post' | 'put' | 'delete' | 'connect' | 'options' | 'trace' | 'patch' | 'all' | 'guard';
+export type RouterMethods<I extends Dict<any>> = {
     [K in HttpMethod]: <T extends string, O extends { body: BodyParser } = { body: 'none' }>(
         path: T, handler: O extends { body: infer B } 
             ? (B extends BodyParser ? Handler<T, I, B> : Handler<T, I>)
@@ -68,18 +73,22 @@ type RouterMethods<I extends Dict<any>> = {
 /**
  * Specific plugin for router
  */
-export interface Plugin<I extends Dict<any> = {}> {
-    (app: Router): Router<I>;
+export interface Plugin<I extends Dict<any> = Dict<any>> {
+    (app: Router<I>): any;
 }
 
-export interface Router<I extends Dict<any> = {}> extends Options, RouterMethods<I> {};
+type RouterPlugin<I> = Plugin<I> | {
+    plugin: Plugin<I>
+};
+
+export interface Router<I> extends Options, RouterMethods<I> {};
 
 /**
  * A Stric router
  * 
  * Note: This will run *only* the first route found
  */
-export class Router<I extends Dict<any> = {}> {
+export class Router<I extends Dict<any> = Dict<any>> {
     /**
      * Internal dynamic path router 
      */
@@ -96,9 +105,9 @@ export class Router<I extends Dict<any> = {}> {
      */
     constructor(opts: Options = {}) {
         Object.assign(this, opts);
-        const allMethods = [...methods, 'all'];
+        if (!('parsePath' in opts)) this.parsePath = true;
 
-        for (const method of allMethods) {
+        for (const method of methods) {
             const METHOD = method.toUpperCase();
             this[method] = (path: string, handler: Handler, opts: any) => {
                 if (opts) for (const prop in opts) 
@@ -117,7 +126,7 @@ export class Router<I extends Dict<any> = {}> {
      * @param path 
      * @param handler 
      */
-    ws<T extends string>(path: T, handler: WebSocketHandler<Request<T>>) {
+    ws<T extends string>(path: T, handler: WebSocketHandler<WSContext<T, I>>) {
         if (!this.webSocketHandlers)
             this.webSocketHandlers = [];
 
@@ -129,18 +138,12 @@ export class Router<I extends Dict<any> = {}> {
     }
 
     /**
-     * Guarding response. Return null if passes
-     */
-    guard<T extends string>(path: T, handler: Handler<T, I>) {
-        return this.use('GUARD', path, handler);
-    }
-
-    /**
      * Inject a variable
      */
     inject(name: string, value: any) {
         if (!this.injects) this.injects = {};
         this.injects[name] = value;
+        return this;
     }
 
     /**
@@ -211,16 +214,44 @@ export class Router<I extends Dict<any> = {}> {
             default:
                 // Normal parsing
                 let [method, path, handler] = args;
+                path = convert(path);
+
                 if (!Array.isArray(method))
                     method = [method];
 
-                if (!this.handlersRec[path])
-                    this.handlersRec[path] = {}
+                if (!this.handlersRec[path]) this.handlersRec[path] = {};
                     
                 for (const mth of method)
                     this.handlersRec[path][mth] = handler;
                 
                 return this;
+        }
+    }
+
+    /**
+     * Register this router as a plugin, which mount all routes, storage and injects (can be overritten)
+     */
+    plugin(app: Router) {
+        let o: any;
+        for (const path in this.handlersRec) {
+            o = this.handlersRec[path];
+
+            if (path in app.handlersRec) Object.assign(app.handlersRec[path], o);
+            else app.handlersRec[path] = o;
+        }
+
+        if (this.injects) {
+            if (app.injects) Object.assign(app.injects, this.injects);
+
+            else for (const key in this.injects) 
+                app.inject(key, this.injects[key]);
+        }
+
+        if (this.storage) {
+            if (app.storage) Object.assign(app.storage, this.storage);
+
+            else for (const key in this.storage) 
+                app.store(key, this.storage[key]);
         }
     }
 
@@ -235,11 +266,11 @@ export class Router<I extends Dict<any> = {}> {
      * Add a plugin
      * @param plugin 
      */
-    plug(plugin: Plugin | {
-        plugin: Plugin
-    }) {
-        if (typeof plugin === 'object') plugin.plugin(this);
-        else plugin(this);
+    plug(...plugins: RouterPlugin<I>[]) {
+        for (const plugin of plugins) {
+            if (typeof plugin === 'object') plugin.plugin(this);
+            else plugin(this);
+        }
         return this;
     }
 
@@ -275,6 +306,7 @@ export class Router<I extends Dict<any> = {}> {
      * @param server Current Bun server
      */
     get fetch(): Handler {
+        if (!this.parsePath && !this.base) throw new Error('Base needs to be provided if `parsePath` is set to true');
         this.assignRouter();
 
         if (this.webSocketHandlers) {
@@ -291,7 +323,7 @@ export class Router<I extends Dict<any> = {}> {
                 this.fn404 ? `return c_(${this.callArgs})` : 'return'
             );
 
-        const res = composeRouter(this.router, this.callArgs, defaultReturn);
+        const res = composeRouter(this.router, this.callArgs, defaultReturn, this.parsePath, this.parsePath ? 0 : this.base.length + 1);
 
         if (this.storage) {
             res.literals.push('s');
@@ -366,11 +398,14 @@ function createWSHandler(name: string) {
 function getPathParser(app: Router) {
     const hostExists = !!app.base, 
         exactHostLen = hostExists ? app.base.length + 1 : 'a';
-    return (hostExists 
-        ? '' 
-        : `const a=r.url.indexOf('/',12)+1;`
-    ) + `r.query=r.url.indexOf('?',${exactHostLen});`
-        + `r.path=r.query===-1?r.url.substring(${exactHostLen}):r.url.substring(${exactHostLen},r.query);`
+
+    if (app.parsePath)
+        return (hostExists ? '' : `const a=r.url.indexOf('/',12)+1;`) 
+            + `r.query=r.url.indexOf('?',${exactHostLen});`
+            + `r.path=r.query===-1?r.url.substring(${exactHostLen}):r.url.substring(${exactHostLen},r.query);`;
+    
+    return `r.query=r.url.indexOf('?',${exactHostLen});if(r.query===-1)r.query=r.url.length;`;
 }
 
+export default Router;
 export { Radx, composeRouter as compose };

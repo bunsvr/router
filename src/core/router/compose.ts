@@ -2,10 +2,16 @@ import Radx from ".";
 import { BodyParser } from "../types";
 import { Node, ParamNode } from "./types";
 
-export default function composeRouter(router: Radx, callArgs: string, defaultReturn: string) {
-    const handlersRec = { index: 0, defaultReturn }, methodsLiterals = [], fnHandlers = []; // Save handlers of methods
+export default function composeRouter(router: Radx, callArgs: string, defaultReturn: string, parsePath: boolean, startIndex: number) {
+    const handlersRec = { 
+        index: 0, defaultReturn, 
+        pathStr: parsePath ? 'r.path' : 'r.url',
+        pathLen: parsePath ? 'r.path.length' : 'r.query',
+        parsePath
+    }, methodsLiterals = [], fnHandlers = []; // Save handlers of methods
+
     fixNode(router.root);
-    const composedBody = composeNode(router.root, callArgs, handlersRec);
+    const composedBody = composeNode(router.root, callArgs, handlersRec, startIndex);
 
     for (const itemName in handlersRec) {
         if (itemName === 'index' || itemName === 'defaultReturn') continue;
@@ -33,7 +39,7 @@ function plus(num: string | number, val: number) {
 function composeNode(
     node: Node<any>, 
     callArgs: string,
-    handlers: Record<string, any> & { index: number, defaultReturn: string }, 
+    handlers: Record<string, any> & { index: number, defaultReturn: string, pathStr: string, pathLen: string | null, parsePath: boolean }, 
     fullPartPrevLen: number | string = 0,
     hasParams: boolean = false, 
     backupParamIndexExists: boolean = false
@@ -42,16 +48,16 @@ function composeNode(
     let str = '', queue = '';
 
     if (node.part.length === 1) {
-        str = `if(r.path.charCodeAt(${fullPartPrevLen})===${node.part.charCodeAt(0)}){`;
+        str = `if(${handlers.pathStr}.charCodeAt(${fullPartPrevLen})===${node.part.charCodeAt(0)}){`;
     } else if (node.part.length !== 0) { 
         str += 'if(' + (fullPartPrevLen === 0 
             ? (node.part.length === 1 
-                ? `r.path.charCodeAt(0)===${node.part.charCodeAt(0)}` 
-                : `r.path.startsWith('${node.part}')`
+                ? `${handlers.pathStr}.charCodeAt(0)===${node.part.charCodeAt(0)}` 
+                : `${handlers.pathStr}.path.startsWith('${node.part}')`
             ) 
             : (node.part.length === 1 
-                ? `r.path.charCodeAt(${fullPartPrevLen})===${node.part.charCodeAt(0)}` 
-                : `r.path.indexOf('${node.part}'${fullPartPrevLen === 0 ? '' : ',' + fullPartPrevLen})===${fullPartPrevLen}`
+                ? `${handlers.pathStr}.charCodeAt(${fullPartPrevLen})===${node.part.charCodeAt(0)}` 
+                : `${handlers.pathStr}.indexOf('${node.part}'${fullPartPrevLen === 0 ? '' : ',' + fullPartPrevLen})===${fullPartPrevLen}`
             )
         ) + '){';
     }
@@ -71,14 +77,15 @@ function composeNode(
 
             ++handlers.index;
         }
-
-        str += `if(r.path.length===${currentPathLen})${getStoreCall(node.store, callArgs, handlers)}`;
+        // If only GUARD exists don't handle
+        if (Object.keys(node.store).length > 1 || !node.store.GUARD)
+            str += `if(${handlers.pathLen}===${currentPathLen}){${getStoreCall(node.store, callArgs, handlers)}}`;
     }
 
     if (node.inert !== null) {
         const keys = Array.from(node.inert.keys());
         if (keys.length === 1) 
-            str += `if(r.path.charCodeAt(${currentPathLen})===${keys[0]}){${
+            str += `if(${handlers.pathStr}.charCodeAt(${currentPathLen})===${keys[0]}){${
                 composeNode(
                     node.inert.get(keys[0]), callArgs, handlers, 
                     plus(currentPathLen, 1), 
@@ -86,7 +93,7 @@ function composeNode(
                 )
             }}`;
         else {
-            str += `switch(r.path.charCodeAt(${currentPathLen})){`
+            str += `switch(${handlers.pathStr}.charCodeAt(${currentPathLen})){`
             for (const key of keys) 
                 str += `case ${key}:{${composeNode(
                     node.inert.get(key), callArgs, handlers, 
@@ -99,13 +106,15 @@ function composeNode(
 
     if (node.params !== null) {
         str += `${backupParamIndexExists ? '' : 'let '}t=${currentPathLen};`;
-        str += (hasParams ? '' : 'let ') + `e=r.path.indexOf('/',t);`;
+        str += (hasParams ? '' : 'let ') + `e=${handlers.pathStr}.indexOf('/',t);`;
 
         const hasStore = node.params.store !== null;
 
         // End index here
         if (hasStore) {
-            const pathSubstr = `r.path${currentPathLen === 0 ? '' : `.substring(t)`}`;
+            const pathSubstr = `${handlers.pathStr}${currentPathLen === 0 ? (
+                handlers.parsePath ? '' : '.substring(0,r.query)'
+            ) : `.substring(t${handlers.parsePath ? '' : ',r.query'})`}`;
 
             str += `if(e===-1){${hasParams 
                 ? `r.params.${node.params.paramName}=${pathSubstr}`
@@ -113,7 +122,7 @@ function composeNode(
             };${getStoreCall(node.params.store, callArgs, handlers)}}`;
         } 
  
-        const pathSubstr = `r.path.substring(t,e)`, addParams = hasParams 
+        const pathSubstr = `${handlers.pathStr}.substring(t,e)`, addParams = hasParams 
             ? `r.params.${node.params.paramName}=${pathSubstr}`
             : `r.params={${node.params.paramName}:${pathSubstr}}`; 
 
@@ -230,7 +239,7 @@ function checkMethodExpr(method: string) {
 
 function getWSHandler(fnIndex: number, callArgs: string) {
     const hasStore = callArgs.length >= 3; 
-    return `return this.upgrade(r, {data:{_:w${fnIndex},request:r${hasStore ? ',store:s' : ''}}});`;
+    return `return this.upgrade(r, {data:{_:w${fnIndex},ctx:r${hasStore ? ',store:s' : ''}}});`;
 }
 
 function getMacroStr(handler: any) {
