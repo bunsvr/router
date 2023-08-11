@@ -239,7 +239,7 @@ function checkMethodExpr(method: string) {
 
 function getWSHandler(fnIndex: number, callArgs: string) {
     const hasStore = callArgs.length >= 3; 
-    return `return this.upgrade(r, {data:{_:w${fnIndex},request:r${hasStore ? ',store:s' : ''}}});`;
+    return `return this.upgrade(r, {data:{_:w${fnIndex},ctx:r${hasStore ? ',store:s' : ''}}});`;
 }
 
 function getMacroStr(handler: any) {

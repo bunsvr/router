@@ -27,11 +27,34 @@ type ParserType<B extends BodyParser> = B extends 'text' ? string : (
 /**
  * WebSocket data
  */
-export interface WSContext<T extends string = string, I extends Dict<any> = never> {
-    request: Request<T>;
+export interface WSContext<P extends string = string, I extends Dict<any> = never> {
+    ctx: Context<P>;
     store: Check<I>;
 }
 
+/**
+ * Represent a request context
+ */
+export interface Context<P extends string = string, D extends BodyParser = 'none'> extends Request {
+    /**
+     * Parsed request body
+     */
+    data: ParserType<D>;
+    /**
+     * Parsed request parameter with additional properties if specified
+     */
+    params: Params<P>;
+    /**
+     * Request query start index (include `?`).
+     */
+    query: number;
+
+    /**
+     * The parsed request path. 
+     * Example: `http://localhost:3000/id/90` -> `id/90`
+     */
+    path: string;
+}
 
 /**
  * A route handler function
@@ -40,32 +63,11 @@ export interface Handler<T extends string = string, I extends Dict<any> = {}, B 
     /**
      * @param request The current request
      */
-    (request: Request<Params<T>, ParserType<B>>, store: Check<I>): any;
+    (ctx: Context<T, B>, store: Check<I>): any;
 }
 
 // Override 
 declare global {
-    interface Request<P = any, D = any> {
-        /**
-         * Parsed request body
-         */
-        data: D;
-        /**
-         * Parsed request parameter with additional properties if specified
-         */
-        params: P;
-        /**
-         * Request query start index (include `?`).
-         */
-        query: number;
-
-        /**
-         * The parsed request path. 
-         * Example: `http://localhost:3000/id/90` -> `id/90`
-         */
-        path: string;
-    }
-
     /**
      * The current running server. Only usable when app is run with `ls()`
      */

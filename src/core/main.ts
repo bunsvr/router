@@ -50,9 +50,14 @@ interface Options extends Partial<TLSOptions>, Partial<ServerWebSocket<Request>>
     base?: string;
 
     /**
-     * Choose to parse path or not
+     * Choose to parse path or not, must be used with `base`
      */
     parsePath?: boolean;
+
+    /**
+     * Whether to match query or not, must be used with `base` and `parsePath`
+     */
+    strict?: boolean;
 }
 
 type HttpMethod = 'get' | 'post' | 'put' | 'delete' | 'connect' | 'options' | 'trace' | 'patch' | 'all' | 'guard';
@@ -138,6 +143,7 @@ export class Router<I extends Dict<any> = Dict<any>> {
     inject(name: string, value: any) {
         if (!this.injects) this.injects = {};
         this.injects[name] = value;
+        return this;
     }
 
     /**
@@ -401,4 +407,5 @@ function getPathParser(app: Router) {
     return `r.query=r.url.indexOf('?',${exactHostLen});if(r.query===-1)r.query=r.url.length;`;
 }
 
+export default Router;
 export { Radx, composeRouter as compose };
