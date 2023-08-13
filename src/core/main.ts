@@ -126,7 +126,7 @@ export class Router<I extends Dict<any> = Dict<any>> {
      * @param path 
      * @param handler 
      */
-    ws<T extends string>(path: T, handler: WebSocketHandler<WSContext<T, I>>) {
+    ws<D extends Dict<any> = {}, T extends string = string>(path: T, handler: WebSocketHandler<WSContext<T, I> & D>) {
         if (!this.webSocketHandlers)
             this.webSocketHandlers = [];
 

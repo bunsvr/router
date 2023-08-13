@@ -16,7 +16,7 @@ export class Group<I extends Dict<any> = Dict<any>> {
     /**
      * Handle WebSocket
      */ 
-    ws<T extends string>(path: T, handler: WebSocketHandler<WSContext<T, I>>) {
+    ws<D extends Dict<any> = {}, T extends string = string>(path: T, handler: WebSocketHandler<WSContext<T, I> & D>) {
         // Add a WebSocket handler
         this.wsRecord.push([path, handler]);
     }
