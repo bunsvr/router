@@ -11,16 +11,6 @@ export interface ErrorHandler {
     (this: Server, err: Errorlike): any
 }
 
-/**
- * A pre-handler 
- */
-interface PreHandler extends Handler {
-    /**
-     * If set to true, the response of this handler will be returned (if the response is not `undefined`)
-     */
-    response?: boolean;
-}
-
 interface Options extends Partial<TLSOptions>, Partial<ServerWebSocket<Request>>, GenericServeOptions {
     serverNames?: Record<string, TLSOptions>;
 
@@ -55,15 +45,17 @@ interface Options extends Partial<TLSOptions>, Partial<ServerWebSocket<Request>>
     parsePath?: boolean;
 
     /**
-     * Whether to match query or not, must be used with `base` and `parsePath`
+     * The minimum length of the request domain.
+     *
+     * Use this instead of `base` to work with subdomain
      */
-    strict?: boolean;
+    uriLen?: number;
 }
 
 type HttpMethod = 'get' | 'post' | 'put' | 'delete' | 'connect' | 'options' | 'trace' | 'patch' | 'all' | 'guard' | 'reject';
 export type RouterMethods<I extends Dict<any>> = {
     [K in HttpMethod]: <T extends string, O extends { body: BodyParser } = { body: 'none' }>(
-        path: T, handler: O extends { body: infer B } 
+        path: T, handler: O extends { body: infer B }
             ? (B extends BodyParser ? Handler<T, I, B> : Handler<T, I>)
             : Handler<T, I>,
         options?: O
@@ -81,7 +73,7 @@ type RouterPlugin<I> = Plugin<I> | {
     plugin: Plugin<I>
 };
 
-export interface Router<I> extends Options, RouterMethods<I> {};
+export interface Router<I> extends Options, RouterMethods<I> { };
 
 /**
  * A Stric router
@@ -97,24 +89,36 @@ export class Router<I extends Dict<any> = Dict<any>> {
     private fn404: Handler;
     storage: Record<string, any>;
     injects: Record<string, any>;
-    private fnPre: PreHandler;
     private handlersRec: Record<string, Record<string, Handler>> = {};
-    
+
     /**
      * Create a router
      */
     constructor(opts: Options = {}) {
         Object.assign(this, opts);
-        if (!('parsePath' in opts)) this.parsePath = true;
+        if (!('parsePath' in opts)) this.parsePath = false;
 
         for (const method of methods) {
             const METHOD = method.toUpperCase();
             this[method] = (path: string, handler: Handler, opts: any) => {
-                if (opts) for (const prop in opts) 
+                if (opts) for (const prop in opts)
                     handler[prop] = opts[prop];
                 return this.use(METHOD, path, handler);
             }
         }
+    }
+
+    /**
+     * Set an alias for a path
+     */
+    alias(name: string, origin: string): this {
+        if (origin in this.handlersRec) {
+            if (!(name in this.handlersRec)) this.handlersRec[name] = {};
+
+            Object.assign(this.handlersRec[name], this.handlersRec[origin]);
+            return this;
+        }
+        throw new Error('Origin pathname not registered yet!');
     }
 
     // Handle websocket
@@ -185,13 +189,6 @@ export class Router<I extends Dict<any> = Dict<any>> {
     /**
      * Add a pre-handler to the router
      * @param type
-     * @param handler if handler returns true execute the return statement
-     */
-    use(type: 'pre', handler: Handler): this;
-
-    /**
-     * Add a pre-handler to the router
-     * @param type
      * @param handler The pre-handler will returns directly if the result is not `undefined`. If handler is asynchronous it should be created using `async` keyword.
      */
     use(type: 'pre', handler: Handler, response: boolean): this;
@@ -205,12 +202,6 @@ export class Router<I extends Dict<any> = Dict<any>> {
             case 'error':
                 this.error = args[1] || default505;
                 return this;
-            case 'pre':
-                this.fnPre = args[1];
-                if (args[2] === true)
-                    this.fnPre.response = true;
-
-                return this;
             default:
                 // Normal parsing
                 let [method, path, handler] = args;
@@ -220,10 +211,10 @@ export class Router<I extends Dict<any> = Dict<any>> {
                     method = [method];
 
                 if (!this.handlersRec[path]) this.handlersRec[path] = {};
-                    
+
                 for (const mth of method)
                     this.handlersRec[path][mth] = handler;
-                
+
                 return this;
         }
     }
@@ -243,14 +234,14 @@ export class Router<I extends Dict<any> = Dict<any>> {
         if (this.injects) {
             if (app.injects) Object.assign(app.injects, this.injects);
 
-            else for (const key in this.injects) 
+            else for (const key in this.injects)
                 app.inject(key, this.injects[key]);
         }
 
         if (this.storage) {
             if (app.storage) Object.assign(app.storage, this.storage);
 
-            else for (const key in this.storage) 
+            else for (const key in this.storage)
                 app.store(key, this.storage[key]);
         }
     }
@@ -306,7 +297,6 @@ export class Router<I extends Dict<any> = Dict<any>> {
      * @param server Current Bun server
      */
     get fetch(): (req: Request) => any {
-        if (!this.parsePath && !this.base) throw new Error('Base needs to be provided if `parsePath` is set to true');
         this.assignRouter();
 
         if (this.webSocketHandlers) {
@@ -316,14 +306,19 @@ export class Router<I extends Dict<any> = Dict<any>> {
             this.websocket.close ||= createWSHandler('close');
         }
 
-        if (!this.router) return () => {};
+        if (!this.router) return () => { };
         // @ts-ignore
-        const defaultReturn = this.fn404 === false 
+        const defaultReturn = this.fn404 === false
             ? 'return new Response(null,n)' : (
                 this.fn404 ? `return c_(${this.callArgs})` : 'return'
             );
 
-        const res = composeRouter(this.router, this.callArgs, defaultReturn, this.parsePath, this.parsePath ? 0 : this.base.length + 1);
+        const res = composeRouter(
+            this.router, this.callArgs, defaultReturn,
+            this.parsePath, this.parsePath ? 0 : (
+                this.base ? this.base.length + 1 : 'a'
+            )
+        );
 
         if (this.storage) {
             res.literals.push('s');
@@ -348,18 +343,10 @@ export class Router<I extends Dict<any> = Dict<any>> {
         // @ts-ignore Inject headers
         if (this.fn404 === false) {
             res.literals.push('n');
-            res.handlers.push({status: 404});
+            res.handlers.push({ status: 404 });
         } else if (this.fn404) {
             res.literals.push('c_');
             res.handlers.push(this.fn404);
-        } 
-
-        if (this.fnPre) {
-            res.literals.push('p');
-            res.handlers.push(this.fnPre);
-
-            if (this.fnPre.response) res.fn = `const b=p(${this.callArgs});if(b!==undefined)return b;` + res.fn;
-            else res.fn = `if(p(${this.callArgs})!==undefined)return;`;
         }
 
         res.fn = getPathParser(this) + res.fn + (defaultReturn === 'return' ? '' : defaultReturn);
@@ -380,7 +367,7 @@ const default505 = () => new Response(null, serverError);
 
 export function macro(fn: Handler<string> | string): Handler<string> {
     if (typeof fn === 'string') return macro(Function(`return()=>new Response('${fn}')`)());
- 
+
     // @ts-ignore detect by createFetch
     fn.isMacro = true;
     return fn;
@@ -389,22 +376,24 @@ export function macro(fn: Handler<string> | string): Handler<string> {
 function createWSHandler(name: string) {
     const argsList = 'w' + (name === 'close' ? ',c,m' : '');
     // Optimization: message handler should exist
-    const body = name === 'message' 
-        ? 'return function(w,m){w.data._.message(w,m)}' 
-        : `const n='${name}';return function(${argsList}){if(n in w.data._)w.data._.${name}(${argsList})}`;
+    const body = name === 'message'
+        ? 'return function(w,m){w.data._.message(w,m)}'
+        : `return function(${argsList}){if('${name}' in w.data._)w.data._.${name}(${argsList})}`;
     return Function(body)();
 }
 
 function getPathParser(app: Router) {
-    const hostExists = !!app.base, 
-        exactHostLen = hostExists ? app.base.length + 1 : 'a';
+    const hostExists = !!app.base,
+        exactHostLen = hostExists ? app.base.length + 1 : 'a',
+        uriStart = app.uriLen || 12,
+        additionalPart = (hostExists ? '' : `const a=r.url.indexOf('/',${uriStart})+1;`);
 
     if (app.parsePath)
-        return (hostExists ? '' : `const a=r.url.indexOf('/',12)+1;`) 
+        return additionalPart
             + `r.query=r.url.indexOf('?',${exactHostLen});`
             + `r.path=r.query===-1?r.url.substring(${exactHostLen}):r.url.substring(${exactHostLen},r.query);`;
-    
-    return `r.query=r.url.indexOf('?',${exactHostLen});if(r.query===-1)r.query=r.url.length;`;
+
+    return additionalPart + `r.query=r.url.indexOf('?',${exactHostLen});if(r.query===-1)r.query=r.url.length;`;
 }
 
 export default Router;

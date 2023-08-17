@@ -9,7 +9,7 @@ const basic = new Group().get('/', macro('Hi client!')),
         .reject('/', () => new Response('Access denied', forbid))
         .post('/json', req => Response.json(req.data), { body: 'json' });
 
-const app = new Router({ base }).plug(basic, admin).use(404), 
+const app = new Router().plug(basic, admin).use(404),
     fn = app.fetch;
 console.log(fn.toString());
 

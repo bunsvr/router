@@ -2,10 +2,10 @@
 import { test, expect } from 'bun:test';
 import { Router, macro } from '..';
 
-const predefinedBody = {hi:'there'};
+const predefinedBody = { hi: 'there' };
 
 // Create the function;
-const app = new Router({ base: 'http://localhost:3000', parsePath: false })
+const app = new Router({ uriLen: 21 })
     .get('/', macro('Hi'))
     .get('/id/:id', req => new Response(req.params.id))
     .get('/:name/dashboard', req => new Response(req.params.name))
@@ -17,7 +17,7 @@ const app = new Router({ base: 'http://localhost:3000', parsePath: false })
 
 const fn = app.fetch as any;
 console.log(fn.toString());
-    
+
 // GET / should returns 'Hi'
 test('GET /', async () => {
     const res = fn(new Request('http://localhost:3000/')) as Response;
@@ -28,7 +28,7 @@ test('GET /', async () => {
 test('GET /id/:id', async () => {
     const randomNum = String(Math.round(Math.random() * 101)),
         res = fn(new Request('http://localhost:3000/id/' + randomNum + '?param'));
-    
+
     expect(await res.text()).toBe(randomNum);
 });
 

@@ -3,7 +3,7 @@ import type { Handler, WSContext } from "../core/types";
 import { convert, methodsLowerCase as methods } from "../core/constants";
 import type { WebSocketHandler } from "bun";
 
-export interface Group<I> extends RouterMethods<I> {}
+export interface Group<I> extends RouterMethods<I> { }
 
 /**
  * A routes group. Can be used as a plugin
@@ -15,7 +15,7 @@ export class Group<I extends Dict<any> = Dict<any>> {
 
     /**
      * Handle WebSocket
-     */ 
+     */
     ws<D extends Dict<any> = {}, T extends string = string>(path: T, handler: WebSocketHandler<WSContext<T, I> & D>) {
         // Add a WebSocket handler
         this.wsRecord.push([path, handler]);

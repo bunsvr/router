@@ -1,6 +1,6 @@
-import { run, bench } from 'mitata';
+import { run, bench, group } from 'mitata';
 
-// Try to get the JIT to run
-await Bun.sleep(20000);
+// @ts-ignore Try to get the JIT to run
+await Bun.sleep(7000);
 
 run();
