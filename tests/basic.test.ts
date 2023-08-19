@@ -5,7 +5,7 @@ import { Router, macro } from '..';
 const predefinedBody = { hi: 'there' };
 
 // Create the function;
-const app = new Router({ uriLen: 21 })
+const app = new Router({ base: 'http://localhost:3000' })
     .get('/', macro('Hi'))
     .get('/id/:id', req => new Response(req.params.id))
     .get('/:name/dashboard', req => new Response(req.params.name))
@@ -13,7 +13,7 @@ const app = new Router({ uriLen: 21 })
     .get('/json', () => Response.json(predefinedBody))
     .get('/api/v1/hi', macro('Hi'))
     .guard('/api/v1', req => req.method === 'GET' ? null : true)
-    .all('/json', macro('ayo wrong method lol'));
+    .all('/json/*', req => new Response(req.params['*']));
 
 const fn = app.fetch as any;
 console.log(fn.toString());
@@ -55,10 +55,10 @@ test('404', async () => {
     let res = fn(new Request('http://localhost:3000/path/that/does/not/exists')) as Response;
     expect(res).toBe(undefined);
 
-    res = fn(new Request('http://localhost:3000/json', {
+    res = fn(new Request('http://localhost:3000/json/any', {
         method: 'PUT'
     })) as Response;
-    expect(await res.text()).toBe('ayo wrong method lol');
+    expect(await res.text()).toBe('any');
 
     res = await fn(new Request('http://localhost:3000/api/v1/hi')) as Response;
     expect(res).toBeNil();

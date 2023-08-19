@@ -36,6 +36,16 @@ function plus(num: string | number, val: number) {
     return num[0] + '+' + (val + total);
 }
 
+function substrCheck(pathStr: string, prevLen: number | string, currentLen: number | string, part: string) {
+    if (part.length > 14) return `${pathStr}.substring(${prevLen},${currentLen})==='${part}'`;
+
+    const conditions = new Array(part.length);
+    for (let i = 0; i < part.length; ++i)
+        conditions[i] = `${pathStr}.charCodeAt(${plus(prevLen, i)})===${part.charCodeAt(i)}`;
+
+    return conditions.join('&&');
+}
+
 function composeNode(
     node: Node<any>,
     callArgs: string,
@@ -57,7 +67,7 @@ function composeNode(
             )
             : (node.part.length === 1
                 ? `${handlers.pathStr}.charCodeAt(${fullPartPrevLen})===${node.part.charCodeAt(0)}`
-                : `${handlers.pathStr}.indexOf('${node.part}'${fullPartPrevLen === 0 ? '' : ',' + fullPartPrevLen})===${fullPartPrevLen}`
+                : substrCheck(handlers.pathStr, fullPartPrevLen, currentPathLen, node.part)
             )
         ) + '){';
     }
@@ -146,7 +156,8 @@ function composeNode(
     }
 
     if (node.wildcardStore !== null) {
-        const pathSubstr = `r.path${currentPathLen === 0 ? '' : `.substring(${currentPathLen})`}`;
+        const pathSubstr = `${handlers.pathStr}${currentPathLen === 0 && handlers.parsePath ? '' : `.substring(${currentPathLen})`
+            }`;
 
         str += hasParams
             ? `r.params['*']=${pathSubstr}`
