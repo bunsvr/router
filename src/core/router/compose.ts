@@ -2,8 +2,17 @@ import Radx from ".";
 import { BodyParser } from "../types";
 import { Node, ParamNode } from "./types";
 
+interface HandlerDetails extends Dict<any> {
+    index: number,
+    defaultReturn: string,
+    pathStr: string,
+    pathLen: string | null,
+    parsePath: boolean,
+    rejectIndex: number;
+}
+
 export default function composeRouter(router: Radx, callArgs: string, defaultReturn: string, parsePath: boolean, startIndex: number | string) {
-    const handlersRec = {
+    const handlersRec: HandlerDetails = {
         index: 0, defaultReturn,
         pathStr: parsePath ? 'r.path' : 'r.url',
         pathLen: parsePath ? 'r.path.length' : 'r.query',
@@ -36,20 +45,10 @@ function plus(num: string | number, val: number) {
     return num[0] + '+' + (val + total);
 }
 
-function substrCheck(pathStr: string, prevLen: number | string, currentLen: number | string, part: string) {
-    if (part.length > 14) return `${pathStr}.substring(${prevLen},${currentLen})==='${part}'`;
-
-    const conditions = new Array(part.length);
-    for (let i = 0; i < part.length; ++i)
-        conditions[i] = `${pathStr}.charCodeAt(${plus(prevLen, i)})===${part.charCodeAt(i)}`;
-
-    return conditions.join('&&');
-}
-
 function composeNode(
     node: Node<any>,
     callArgs: string,
-    handlers: Record<string, any> & { index: number, rejectIndex: number, defaultReturn: string, pathStr: string, pathLen: string | null, parsePath: boolean },
+    handlers: HandlerDetails,
     fullPartPrevLen: number | string = 0,
     hasParams: boolean = false,
     backupParamIndexExists: boolean = false
@@ -67,7 +66,7 @@ function composeNode(
             )
             : (node.part.length === 1
                 ? `${handlers.pathStr}.charCodeAt(${fullPartPrevLen})===${node.part.charCodeAt(0)}`
-                : substrCheck(handlers.pathStr, fullPartPrevLen, currentPathLen, node.part)
+                : `${handlers.pathStr}.substring(${fullPartPrevLen},${currentPathLen})==='${node.part}'`
             )
         ) + '){';
     }

@@ -292,11 +292,11 @@ export class Router<I extends Dict<any> = Dict<any>> {
     }
 
     /**
-     * Fetch handler. 
-     * @param request Incoming request
-     * @param server Current Bun server
+     * Get the literal, parameters and parameters value Stric uses to compose the fetch function.
+     *
+     * This method is intended for advanced usage.
      */
-    get fetch(): (req: Request) => any {
+    get fetchMeta() {
         this.assignRouter();
 
         if (this.webSocketHandlers) {
@@ -306,7 +306,7 @@ export class Router<I extends Dict<any> = Dict<any>> {
             this.websocket.close ||= createWSHandler('close');
         }
 
-        if (!this.router) return () => { };
+        if (!this.router) throw new Error('Please register a route first!');
         // @ts-ignore
         const defaultReturn = this.fn404 === false
             ? 'return new Response(null,n)' : (
@@ -350,7 +350,22 @@ export class Router<I extends Dict<any> = Dict<any>> {
         }
 
         res.fn = getPathParser(this) + res.fn + (defaultReturn === 'return' ? '' : defaultReturn);
-        return Function(...res.literals, `return function(${this.callArgs}){${res.fn}}`)(...res.handlers);
+        return {
+            params: res.literals,
+            body: `return function(${this.callArgs}){${res.fn}}`,
+            values: res.handlers
+        };
+    }
+
+    /**
+     * Fetch handler. 
+     * @param request Incoming request
+     * @param server Current Bun server
+     */
+    get fetch(): (req: Request) => any {
+        const meta = this.fetchMeta;
+
+        return Function(...meta.params, meta.body)(...meta.values);
     };
 
     /**
