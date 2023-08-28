@@ -2,12 +2,21 @@ import Radx from ".";
 import { BodyParser } from "../types";
 import { Node, ParamNode } from "./types";
 
-export default function composeRouter(router: Radx, callArgs: string, defaultReturn: string, parsePath: boolean, startIndex: number) {
-    const handlersRec = { 
-        index: 0, defaultReturn, 
+interface HandlerDetails extends Dict<any> {
+    index: number,
+    defaultReturn: string,
+    pathStr: string,
+    pathLen: string | null,
+    parsePath: boolean,
+    rejectIndex: number;
+}
+
+export default function composeRouter(router: Radx, callArgs: string, defaultReturn: string, parsePath: boolean, startIndex: number | string) {
+    const handlersRec: HandlerDetails = {
+        index: 0, defaultReturn,
         pathStr: parsePath ? 'r.path' : 'r.url',
         pathLen: parsePath ? 'r.path.length' : 'r.query',
-        parsePath
+        parsePath, rejectIndex: 0
     }, methodsLiterals = [], fnHandlers = []; // Save handlers of methods
 
     fixNode(router.root);
@@ -37,11 +46,11 @@ function plus(num: string | number, val: number) {
 }
 
 function composeNode(
-    node: Node<any>, 
+    node: Node<any>,
     callArgs: string,
-    handlers: Record<string, any> & { index: number, defaultReturn: string, pathStr: string, pathLen: string | null, parsePath: boolean }, 
+    handlers: HandlerDetails,
     fullPartPrevLen: number | string = 0,
-    hasParams: boolean = false, 
+    hasParams: boolean = false,
     backupParamIndexExists: boolean = false
 ) {
     const currentPathLen = plus(fullPartPrevLen, node.part.length);
@@ -49,15 +58,15 @@ function composeNode(
 
     if (node.part.length === 1) {
         str = `if(${handlers.pathStr}.charCodeAt(${fullPartPrevLen})===${node.part.charCodeAt(0)}){`;
-    } else if (node.part.length !== 0) { 
-        str += 'if(' + (fullPartPrevLen === 0 
-            ? (node.part.length === 1 
-                ? `${handlers.pathStr}.charCodeAt(0)===${node.part.charCodeAt(0)}` 
+    } else if (node.part.length !== 0) {
+        str += 'if(' + (fullPartPrevLen === 0
+            ? (node.part.length === 1
+                ? `${handlers.pathStr}.charCodeAt(0)===${node.part.charCodeAt(0)}`
                 : `${handlers.pathStr}.path.startsWith('${node.part}')`
-            ) 
-            : (node.part.length === 1 
-                ? `${handlers.pathStr}.charCodeAt(${fullPartPrevLen})===${node.part.charCodeAt(0)}` 
-                : `${handlers.pathStr}.indexOf('${node.part}'${fullPartPrevLen === 0 ? '' : ',' + fullPartPrevLen})===${fullPartPrevLen}`
+            )
+            : (node.part.length === 1
+                ? `${handlers.pathStr}.charCodeAt(${fullPartPrevLen})===${node.part.charCodeAt(0)}`
+                : `${handlers.pathStr}.substring(${fullPartPrevLen},${currentPathLen})==='${node.part}'`
             )
         ) + '){';
     }
@@ -66,14 +75,21 @@ function composeNode(
     if (node.store !== null) {
         // Resolve guard
         if (node.store.GUARD) {
-            const guardFn = node.store.GUARD;
+            let returnStatement = handlers.defaultReturn;
+            // Check if a reject does exists to customize handling
+            if (node.store.REJECT) {
+                handlers['c_' + handlers.rejectIndex] = node.store.REJECT;
+                returnStatement = `return c_${handlers.rejectIndex}(${callArgs})`;
+                ++handlers.rejectIndex;
+            }
 
+            const guardFn = node.store.GUARD;
             handlers['c' + handlers.index] = guardFn;
 
             if (isAsync(guardFn)) {
-                str += `return c${handlers.index}(${callArgs}).then(_=>{if(_===null)${handlers.defaultReturn};`;
+                str += `return c${handlers.index}(${callArgs}).then(_=>{if(_===null)${returnStatement};`;
                 queue = '});';
-            } else str += `if(c${handlers.index}(${callArgs})===null)${handlers.defaultReturn};`;
+            } else str += `if(c${handlers.index}(${callArgs})===null)${returnStatement};`;
 
             ++handlers.index;
         }
@@ -84,22 +100,21 @@ function composeNode(
 
     if (node.inert !== null) {
         const keys = Array.from(node.inert.keys());
-        if (keys.length === 1) 
-            str += `if(${handlers.pathStr}.charCodeAt(${currentPathLen})===${keys[0]}){${
-                composeNode(
-                    node.inert.get(keys[0]), callArgs, handlers, 
-                    plus(currentPathLen, 1), 
-                    hasParams, backupParamIndexExists
-                )
-            }}`;
+        if (keys.length === 1)
+            str += `if(${handlers.pathStr}.charCodeAt(${currentPathLen})===${keys[0]}){${composeNode(
+                node.inert.get(keys[0]), callArgs, handlers,
+                plus(currentPathLen, 1),
+                hasParams, backupParamIndexExists
+            )
+                }}`;
         else {
             str += `switch(${handlers.pathStr}.charCodeAt(${currentPathLen})){`
-            for (const key of keys) 
+            for (const key of keys)
                 str += `case ${key}:{${composeNode(
-                    node.inert.get(key), callArgs, handlers, 
-                    plus(currentPathLen, 1), 
+                    node.inert.get(key), callArgs, handlers,
+                    plus(currentPathLen, 1),
                     hasParams, backupParamIndexExists
-                )};break}` 
+                )};break}`
             str += '}';
         }
     }
@@ -116,30 +131,34 @@ function composeNode(
                 handlers.parsePath ? '' : '.substring(0,r.query)'
             ) : `.substring(t${handlers.parsePath ? '' : ',r.query'})`}`;
 
-            str += `if(e===-1){${hasParams 
+            str += `if(e===-1){${hasParams
                 ? `r.params.${node.params.paramName}=${pathSubstr}`
-                : `r.params={${node.params.paramName}:${pathSubstr}}`       
-            };${getStoreCall(node.params.store, callArgs, handlers)}}`;
-        } 
- 
-        const pathSubstr = `${handlers.pathStr}.substring(t,e)`, addParams = hasParams 
+                : `r.params={${node.params.paramName}:${pathSubstr}}`
+                };${getStoreCall(node.params.store, callArgs, handlers)}}`;
+        }
+
+        const pathSubstr = `${handlers.pathStr}.substring(t,e)`, addParams = hasParams
             ? `r.params.${node.params.paramName}=${pathSubstr}`
-            : `r.params={${node.params.paramName}:${pathSubstr}}`; 
+            : `r.params={${node.params.paramName}:${pathSubstr}}`;
 
         if (node.params.inert !== null) {
-            const newPathLen = typeof currentPathLen === 'number' || backupParamIndexExists ? 'e+1' : plus(currentPathLen, 1);
+            const newPathLen = typeof currentPathLen === 'number'
+                || backupParamIndexExists
+                // For no base specified
+                || currentPathLen.includes('a') ? 'e+1' : plus(currentPathLen, 1);
             const composeRes = composeNode(node.params.inert, callArgs, handlers, newPathLen, true, true);
 
-            str += hasStore 
+            str += hasStore
                 ? addParams + ';' + composeRes
                 : `if(e===-1)${handlers.defaultReturn};${addParams};${composeRes}`;
-        } 
+        }
     }
 
     if (node.wildcardStore !== null) {
-        const pathSubstr = `r.path${currentPathLen === 0 ? '' : `.substring(${currentPathLen})`}`;
+        const pathSubstr = `${handlers.pathStr}${currentPathLen === 0 && handlers.parsePath ? '' : `.substring(${currentPathLen})`
+            }`;
 
-        str += hasParams 
+        str += hasParams
             ? `r.params['*']=${pathSubstr}`
             : `r.params={'*':${pathSubstr}}`;
         str += `;${getStoreCall(node.wildcardStore, callArgs, handlers)}`;
@@ -156,13 +175,13 @@ export function fixNode(currentNode: Node<any> | ParamNode<any>, isInert: boolea
     // Not a parametric node
     if ('part' in currentNode) {
         // @ts-ignore Check whether this node is an inert and not a parametric node and is fixed or not
-        if (isInert && !currentNode.isFixed) { 
-            currentNode.part = currentNode.part.substring(1); 
+        if (isInert && !currentNode.isFixed) {
+            currentNode.part = currentNode.part.substring(1);
             // @ts-ignore
             currentNode.isFixed = true;
         }
 
-        if (currentNode.inert !== null) for (const item of currentNode.inert) 
+        if (currentNode.inert !== null) for (const item of currentNode.inert)
             fixNode(item[1], true);
 
         if (currentNode.params !== null) fixNode(currentNode.params, false);
@@ -179,7 +198,7 @@ export function getStoreCall(fn: any, callArgs: string, handlers: { index: numbe
 
     for (const method in fn) {
         switch (method) {
-            case 'ALL': case 'GUARD': continue;
+            case 'ALL': case 'GUARD': case 'REJECT': continue;
             default: str += `if(${checkMethodExpr(method)})${storeCheck(fn[method], handlers, callArgs, handlers.index)}`;
         }
     }
@@ -192,20 +211,21 @@ export function getStoreCall(fn: any, callArgs: string, handlers: { index: numbe
 }
 
 // c: Prefix for normal handlers
+// c_: Prefix for 404 handlers
 // w: Prefix for WS
 // h: Prefix for wrappers
 export function storeCheck(fn: any, handlers: { index: number }, callArgs: string, index: number) {
     if (typeof fn === 'number') return getWSHandler(fn, callArgs);
-    if (fn.isMacro) { 
+    if (fn.isMacro) {
         if (fn.body && fn.body !== 'none') throw new Error('Macros cannot be used with route options!');
-        return getMacroStr(fn); 
+        return getMacroStr(fn);
     }
 
     handlers['c' + handlers.index] = fn;
     ++handlers.index;
 
     let str = 'return ', methodCall = `c${index}(${callArgs})`;
-    
+
     if (fn.body && fn.body !== 'none') {
         methodCall = 'return ' + methodCall;
         str += 'r.';
@@ -238,7 +258,7 @@ function checkMethodExpr(method: string) {
 }
 
 function getWSHandler(fnIndex: number, callArgs: string) {
-    const hasStore = callArgs.length >= 3; 
+    const hasStore = callArgs.length >= 3;
     return `return this.upgrade(r, {data:{_:w${fnIndex},ctx:r${hasStore ? ',store:s' : ''}}});`;
 }
 

@@ -19,7 +19,7 @@ type ParserType<B extends BodyParser> = B extends 'text' ? string : (
         B extends 'form' ? FormData : (
             B extends 'buffer' ? ArrayBuffer : (
                 B extends 'blob' ? Blob : never
-            ) 
+            )
         )
     )
 );
@@ -83,3 +83,23 @@ declare global {
  * - 'buffer': req.arrayBuffer()
  */
 export type BodyParser = 'json' | 'text' | 'form' | 'blob' | 'buffer' | 'none';
+
+/**
+ * Fetch metadatas
+ */
+export interface FetchMeta {
+    /**
+     * Parameters to pass into fetch scope
+     */
+    params: string[];
+
+    /**
+     * The body of the fetch function 
+     */
+    body: string;
+
+    /**
+     * All values corresponding to the parameters
+     */
+    values: any[];
+} 
