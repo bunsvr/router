@@ -1,5 +1,5 @@
 import { Errorlike, GenericServeOptions, Server, ServerWebSocket, TLSOptions, WebSocketHandler } from 'bun';
-import { BodyParser, Handler, WSContext } from './types';
+import { BodyParser, FetchMeta, Handler, WSContext } from './types';
 import Radx from './router';
 import composeRouter from './router/compose';
 import { convert, methodsLowerCase as methods } from './constants';
@@ -296,7 +296,7 @@ export class Router<I extends Dict<any> = Dict<any>> {
      *
      * This method is intended for advanced usage.
      */
-    get fetchMeta() {
+    get fetchMeta(): FetchMeta {
         this.assignRouter();
 
         if (this.webSocketHandlers) {
@@ -352,7 +352,7 @@ export class Router<I extends Dict<any> = Dict<any>> {
         res.fn = getPathParser(this) + res.fn + (defaultReturn === 'return' ? '' : defaultReturn);
         return {
             params: res.literals,
-            body: `return function(${this.callArgs}){${res.fn}}`,
+            body: `return function(r){${res.fn}}`,
             values: res.handlers
         };
     }
@@ -362,10 +362,8 @@ export class Router<I extends Dict<any> = Dict<any>> {
      * @param request Incoming request
      * @param server Current Bun server
      */
-    get fetch(): (req: Request) => any {
-        const meta = this.fetchMeta;
-
-        return Function(...meta.params, meta.body)(...meta.values);
+    get fetch() {
+        return buildFetch(this.fetchMeta);
     };
 
     /**
@@ -409,6 +407,13 @@ function getPathParser(app: Router) {
             + `r.path=r.query===-1?r.url.substring(${exactHostLen}):r.url.substring(${exactHostLen},r.query);`;
 
     return additionalPart + `r.query=r.url.indexOf('?',${exactHostLen});if(r.query===-1)r.query=r.url.length;`;
+}
+
+/**
+ * Build a fetch function from fetch metadata
+ */
+export function buildFetch(meta: FetchMeta): (req: Request) => any {
+    return Function(...meta.params, meta.body)(...meta.values);
 }
 
 export default Router;
