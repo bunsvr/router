@@ -378,7 +378,7 @@ export class Router<I extends Dict<any> = Dict<any>> {
 const serverError = { status: 500 };
 const default505 = () => new Response(null, serverError);
 
-export function macro(fn: Handler<string> | string): Handler<string> {
+export function macro<T extends string>(fn: Handler<T> | string): Handler<T> {
     if (typeof fn === 'string') return macro(Function(`return()=>new Response('${fn}')`)());
 
     // @ts-ignore detect by createFetch

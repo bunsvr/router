@@ -15,11 +15,18 @@ const nf = { status: 404 },
     getStatusText = (r: Response) => r.statusText;
 
 type Params = [url: string, init?: RequestInit];
+const base = 'http://a';
 
 /**
- * Create a tester for the current router
+ * Create a tester for the current router.
+ *
+ * Only use this in a test environment because it will override `app.base` (should be in a separated file which imported the app).
  */
-export function mock(app: Router) {
+export function mock(app: Router, log: boolean = false) {
+    // Modify the base to build a test fetch function
+    app.base = base;
+    delete app.uriLen;
+
     const meta = app.fetchMeta, fn = buildFetch(meta);
 
     return {
@@ -29,9 +36,17 @@ export function mock(app: Router) {
          * If a non-response object is returned, an empty 404 response is returned instead
          */
         async fetch(...args: Params): Promise<Response> {
+            if (log) console.debug('Testing', args[0]);
+
+            if (!args[0].startsWith('http'))
+                args[0] = base + args[0];
+
             let res = fn(new Request(...args));
+
             if (res instanceof Promise) res = await res;
             if (res instanceof Response) return res;
+
+            if (log) console.debug('Path not handled!');
             return new Response(null, nf);
         },
 
