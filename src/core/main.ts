@@ -70,7 +70,7 @@ export interface Plugin<I extends Dict<any> = Dict<any>> {
     (app: Router<I>): any;
 }
 
-type RouterPlugin<I> = Plugin<I> | {
+type RouterPlugin<I extends Dict<any>> = Plugin<I> | {
     plugin: Plugin<I>
 };
 
