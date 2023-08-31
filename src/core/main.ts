@@ -322,7 +322,7 @@ export class Router<I extends Dict<any> = Dict<any>> {
      *
      * This method is intended for advanced usage.
      */
-    get fetchMeta(): FetchMeta {
+    get meta(): FetchMeta {
         this.assignRouter();
 
         if (this.webSocketHandlers) {
@@ -391,7 +391,7 @@ export class Router<I extends Dict<any> = Dict<any>> {
      * @param server Current Bun server
      */
     get fetch() {
-        return buildFetch(this.fetchMeta);
+        return buildFetch(this.meta);
     };
 
     /**

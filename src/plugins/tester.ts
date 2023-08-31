@@ -42,8 +42,7 @@ export function mock(app: Router, opts: MockOptions = {}) {
     app.base = base;
     delete app.uriLen;
 
-    const meta = app.fetchMeta,
-        fn = buildFetch(meta);
+    const meta = app.meta, fn = buildFetch(meta);
 
     // Reset all values after building
     if (oldURILen !== null) app.uriLen = oldURILen;
