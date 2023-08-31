@@ -175,7 +175,6 @@ export class Router<I extends Dict<any> = Dict<any>> {
     /**
      * Add the default 404 handler to the router
      * @param type
-     * @param handler
      */
     use(type: 404): this;
 
@@ -189,14 +188,13 @@ export class Router<I extends Dict<any> = Dict<any>> {
     /**
      * Add the default 500 handler to the router
      * @param type
-     * @param handler
      */
     use(type: 500 | 'error'): this;
 
     /**
-     * Add the default 500 handler to the router
+     * Attach the store to the router
      * @param type
-     * @param handler
+     * @param store
      */
     use<T>(type: 'store', store: T): Router<I & T>;
 
