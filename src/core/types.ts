@@ -18,7 +18,7 @@ type ParserType<B extends BodyParser> = B extends 'text' ? string : (
     B extends 'json' ? Record<string | number, any> : (
         B extends 'form' ? FormData : (
             B extends 'buffer' ? ArrayBuffer : (
-                B extends 'blob' ? Blob : never
+                B extends 'blob' ? Blob : any
             )
         )
     )
@@ -43,7 +43,7 @@ export interface Context<P extends string = string, D extends BodyParser = 'none
     /**
      * Parsed request parameter with additional properties if specified
      */
-    params: Params<P>;
+    params: Params<P> & Dict<any>;
     /**
      * Request query start index (include `?`).
      */
