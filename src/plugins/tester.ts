@@ -157,7 +157,7 @@ export function mock(app: Router, opts: MockOptions = {}) {
         /**
          * Mock a request and convert the response to an ArrayBuffer
          */
-        async buffer(...args: Params): Promise<ArrayBuffer> {
+        async buf(...args: Params): Promise<ArrayBuffer> {
             return this.fetch(...args).then(toBuffer);
         },
 
