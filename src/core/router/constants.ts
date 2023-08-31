@@ -3,5 +3,5 @@ export const internalPrefix = '_',
     rejectPrefix = internalPrefix + 'r',
     wsPrefix = internalPrefix + 'w',
     nfHandler = internalPrefix + 'n',
-    requestObjectName = internalPrefix + 'r',
-    storeObjectName = internalPrefix + 's';
+    requestObjectName = 'r',
+    storeObjectName = 's';
