@@ -4,7 +4,7 @@ class ResponseStatus {
     constructor(public code: number, public text: string) { }
 }
 
-const nf = { status: 404 },
+const nf = { status: 204 },
     toTxT = (r: Response) => r.text(),
     toJSON = (r: Response) => r.json(),
     toBlob = (r: Response) => r.blob(),

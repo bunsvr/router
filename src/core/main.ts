@@ -124,9 +124,7 @@ export class Router<I extends Dict<any> = Dict<any>> {
     // Handle websocket
     private webSocketHandlers: WebSocketHandler[];
     /**
-     * Handling WebSocket connections. Only works in Bun
-     * 
-     * WebSocket pathname cannot collide with any other pathname     * with GET method
+     * Handling WebSocket connections. Only works in Bun 
      * @param path 
      * @param handler 
      */
@@ -142,7 +140,7 @@ export class Router<I extends Dict<any> = Dict<any>> {
     }
 
     /**
-     * Inject a variable
+     * Inject a variable into the fetch function scope
      */
     inject(name: string, value: any) {
         if (name[0] === '_')
@@ -380,7 +378,7 @@ export class Router<I extends Dict<any> = Dict<any>> {
         res.fn = getPathParser(this) + res.fn;
         return {
             params: res.literals,
-            body: `return function(${requestObjectName}){${res.fn}}`,
+            body: `return function(${requestObjectName}){${res.fn}${defaultReturn === 'return' ? '' : defaultReturn}}`,
             values: res.handlers
         };
     }
