@@ -1,6 +1,6 @@
 import Radx from ".";
 import { BodyParser } from "../types";
-import { handlerPrefix, rejectPrefix, requestObjectName, storeObjectName, wsPrefix } from "./constants";
+import { currentParamIndex, handlerPrefix, invalidBodyHandler, prevParamIndex, rejectPrefix, requestObjectName, storeObjectName, wsPrefix } from "./constants";
 import { Node, ParamNode } from "./types";
 
 interface HandlerDetails extends Dict<any> {
@@ -9,19 +9,29 @@ interface HandlerDetails extends Dict<any> {
     __pathStr: string,
     __pathLen: string | null,
     __parsePath: boolean,
-    __rejectIndex: number;
+    __rejectIndex: number,
+    __catchBody: string,
 }
 
 export default function composeRouter(
     router: Radx, callArgs: string, __defaultReturn: string,
-    __parsePath: boolean, startIndex: number | string
+    __parsePath: boolean, startIndex: number | string, fn400: any
 ) {
     const handlersRec: HandlerDetails = {
         __index: 0, __defaultReturn,
         __pathStr: requestObjectName + '.' + (__parsePath ? 'path' : 'url'),
         __pathLen: requestObjectName + '.' + (__parsePath ? 'path.length' : 'query'),
-        __parsePath, __rejectIndex: 0
+        __parsePath, __rejectIndex: 0, __catchBody: ''
     }, methodsLiterals = [], fnHandlers = []; // Save handlers of methods
+
+    if (fn400) {
+        handlersRec[invalidBodyHandler] = fn400;
+        handlersRec.__catchBody = `.catch(()=>${invalidBodyHandler}(${callArgs}))`;
+    } else if (fn400 === false) {
+        const t = { status: 400 };
+        handlersRec[invalidBodyHandler] = () => new Response(null, t);
+        handlersRec.__catchBody = `.catch(${invalidBodyHandler})`;
+    }
 
     fixNode(router.root);
     const composedBody = composeNode(router.root, callArgs, handlersRec, startIndex);
@@ -42,11 +52,11 @@ export default function composeRouter(
 function plus(num: string | number, val: number) {
     if (val === 0) return num;
     if (typeof num === 'number') return num + val;
-    if (num.length === 1) return num + '+' + val;
 
-    let slices = num.split('+'), total = Number(slices[1]);
+    let slices = num.split('+'),
+        total = Number(slices[1]);
 
-    return num[0] + '+' + (val + total);
+    return slices[0] + '+' + (val + total);
 }
 
 function composeNode(
@@ -105,19 +115,22 @@ function composeNode(
                     node.inert.get(key), callArgs, handlers,
                     plus(currentPathLen, 1),
                     hasParams, backupParamIndexExists
-                )}break;`
+                )}${handlers.__defaultReturn};`
             str += '}';
         }
     }
 
     if (node.params !== null) {
-        const tDec = `t=${currentPathLen}`, eDec = `e=${handlers.__pathStr}.indexOf('/',t)`;
-        if (!backupParamIndexExists && !hasParams)
-            str += `let ${tDec},${eDec};`
-        else {
-            str += `${backupParamIndexExists ? '' : 'let '}${tDec};`;
-            str += (hasParams ? '' : 'let ') + eDec + `;`;
-        }
+        const tDec = `${prevParamIndex}=${currentPathLen}`,
+            pathLenIsNum = typeof currentPathLen === 'number',
+            indexFrom = pathLenIsNum ? currentPathLen : prevParamIndex,
+            nextSlash = `${handlers.__pathStr}.indexOf('/',${indexFrom})`,
+            eDec = `${currentParamIndex}=${nextSlash}`,
+            // If has no inert then no need to create a variable
+            hasInert = node.params.inert !== null;
+
+        if (!pathLenIsNum) str += `${backupParamIndexExists ? '' : 'let '}${tDec};`;
+        if (hasInert) str += (hasParams ? '' : 'let ') + eDec + `;`;
 
         const hasStore = node.params.store !== null;
 
@@ -125,30 +138,34 @@ function composeNode(
         if (hasStore) {
             const pathSubstr = `${handlers.__pathStr}${currentPathLen === 0 ? (
                 handlers.__parsePath ? '' : `.substring(0,${requestObjectName}.query)`
-            ) : `.substring(t${handlers.__parsePath ? '' : `,${requestObjectName}.query`})`}`;
+            ) : `.substring(${indexFrom}${handlers.__parsePath ? '' : `,${requestObjectName}.query`})`}`;
 
-            str += `if(e===-1){${requestObjectName}.params${hasParams
+            str += `if(${hasInert ? currentParamIndex : nextSlash}===-1){${requestObjectName}.params${hasParams
                 ? `.${node.params.paramName}=${pathSubstr}`
                 : `={${node.params.paramName}:${pathSubstr}}`
                 };${getStoreCall(node.params.store, callArgs, handlers)}}`;
         }
 
-        const pathSubstr = `${handlers.__pathStr}.substring(t,e)`, addParams =
-            requestObjectName + '.params' + (hasParams
+        const pathSubstr = `${handlers.__pathStr}.substring(${indexFrom},${currentParamIndex})`,
+            addParams = requestObjectName + '.params' + (hasParams
                 ? `.${node.params.paramName}=${pathSubstr}`
                 : `={${node.params.paramName}:${pathSubstr}}`
             );
 
-        if (node.params.inert !== null) {
+        if (hasInert) {
             const newPathLen = typeof currentPathLen === 'number'
                 || backupParamIndexExists
                 // For no base specified
-                || currentPathLen.includes('a') ? 'e+1' : plus(currentPathLen, 1);
-            const composeRes = composeNode(node.params.inert, callArgs, handlers, newPathLen, true, true);
+                || currentPathLen.includes('a') ? (currentParamIndex + '+1') : plus(currentPathLen, 1);
+
+            const composeRes = composeNode(
+                node.params.inert, callArgs, handlers,
+                newPathLen, true, !pathLenIsNum
+            );
 
             str += hasStore
                 ? addParams + ';' + composeRes
-                : `if(e===-1)${handlers.__defaultReturn};${addParams};${composeRes}`;
+                : `if(${currentParamIndex}===-1)${handlers.__defaultReturn};${addParams};${composeRes}`;
         }
     }
 
@@ -231,7 +248,7 @@ export function storeCheck(fn: any, handlers: HandlerDetails, callArgs: string, 
             default: throw new Error('Invalid body parser specified: ' + fn.body);
         }
 
-        str += `().then(_=>{${requestObjectName}.data=_;${methodCall}});`
+        str += `().then(_=>{${requestObjectName}.data=_;${methodCall}})${handlers.__catchBody};`
     } else str += methodCall;
     return str;
 }

@@ -87,6 +87,7 @@ export class Router<I extends Dict<any> = Dict<any>> {
      */
     router: Radx<Handler>;
     private fn404: Handler;
+    private fn400: Handler;
     storage: I;
     injects: Record<string, any>;
     record: Record<string, Record<string, Handler>> = {};
@@ -164,7 +165,7 @@ export class Router<I extends Dict<any> = Dict<any>> {
     use<T extends string>(method: string | string[], path: T, handler: Handler<T>): this;
 
     /**
-     * Add 404 handler to the router
+     * Add a 404 handler to the router
      * @param type
      * @param handler
      */
@@ -175,6 +176,19 @@ export class Router<I extends Dict<any> = Dict<any>> {
      * @param type
      */
     use(type: 404): this;
+
+    /**
+     * Add a 400 handler to the router when parsing body failed
+     * @param type
+     * @param handler
+     */
+    use(type: 400, handler: Handler): this;
+
+    /**
+     * Add the default 400 handler to the router when parsing body failed
+     * @param type
+     */
+    use(type: 400): this;
 
     /**
      * Add an error handler to the router
@@ -200,6 +214,9 @@ export class Router<I extends Dict<any> = Dict<any>> {
         switch (args[0]) {
             case 404:
                 this.fn404 = args[1] || false;
+                return this;
+            case 400:
+                this.fn400 = args[1] || false;
                 return this;
             case 500:
             case 'error':
@@ -341,7 +358,7 @@ export class Router<I extends Dict<any> = Dict<any>> {
             this.router, this.callArgs, defaultReturn,
             this.parsePath, this.parsePath ? 0 : (
                 this.base ? this.base.length + 1 : 'a'
-            )
+            ), this.fn400
         );
 
         if (this.storage) {
