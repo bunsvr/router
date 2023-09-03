@@ -39,17 +39,16 @@ export function mock(app: Router, opts: MockOptions = {}) {
         logLvl = opts.logLevel || 0;
 
     // Modify the base to build a test fetch function
-    app.base = base;
-    delete app.uriLen;
+    if (oldBase) app.base = base;
+    else app.uriLen = 8;
 
     const meta = app.meta, fn = buildFetch(meta);
 
-    // Reset all values after building
-    if (oldURILen !== null) app.uriLen = oldURILen;
-
-    if (oldBase !== null) app.base = oldBase;
-    // Handle case when base does not exists
-    else delete app.base;
+    if (oldBase) {
+        if (oldBase !== null) app.base = oldBase;
+        // Handle case when base does not exists
+        else delete app.base;
+    } else app.uriLen = oldURILen;
 
     if (logLvl >= 3) {
         console.info('Parameters name:', meta.params);

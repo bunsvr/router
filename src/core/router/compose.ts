@@ -1,6 +1,6 @@
 import Radx from ".";
 import { BodyParser } from "../types";
-import { currentParamIndex, handlerPrefix, invalidBodyHandler, prevParamIndex, rejectPrefix, requestObjectName, storeObjectName, wsPrefix } from "./constants";
+import { currentParamIndex, handlerPrefix, invalidBodyHandler, prevParamIndex, rejectPrefix, requestObjectName, storeObjectName, urlStartIndex, wsPrefix } from "./constants";
 import { Node, ParamNode } from "./types";
 
 interface HandlerDetails extends Dict<any> {
@@ -8,20 +8,19 @@ interface HandlerDetails extends Dict<any> {
     __defaultReturn: string,
     __pathStr: string,
     __pathLen: string | null,
-    __parsePath: boolean,
     __rejectIndex: number,
     __catchBody: string,
 }
 
 export default function composeRouter(
     router: Radx, callArgs: string, __defaultReturn: string,
-    __parsePath: boolean, startIndex: number | string, fn400: any
+    startIndex: number | string, fn400: any
 ) {
     const handlersRec: HandlerDetails = {
         __index: 0, __defaultReturn,
-        __pathStr: requestObjectName + '.' + (__parsePath ? 'path' : 'url'),
-        __pathLen: requestObjectName + '.' + (__parsePath ? 'path.length' : 'query'),
-        __parsePath, __rejectIndex: 0, __catchBody: ''
+        __pathStr: requestObjectName + '.url',
+        __pathLen: requestObjectName + '.query',
+        __rejectIndex: 0, __catchBody: ''
     }, methodsLiterals = [], fnHandlers = []; // Save handlers of methods
 
     if (fn400) {
@@ -55,6 +54,8 @@ function plus(num: string | number, val: number) {
 
     let slices = num.split('+'),
         total = Number(slices[1]);
+
+    if (isNaN(total)) total = 0;
 
     return slices[0] + '+' + (val + total);
 }
@@ -156,7 +157,7 @@ function composeNode(
             const newPathLen = typeof currentPathLen === 'number'
                 || backupParamIndexExists
                 // For no base specified
-                || currentPathLen.includes('a') ? (currentParamIndex + '+1') : plus(currentPathLen, 1);
+                || currentPathLen.startsWith(urlStartIndex) ? plus(currentParamIndex, 1) : plus(currentPathLen, 1);
 
             const composeRes = composeNode(
                 node.params.inert, callArgs, handlers,

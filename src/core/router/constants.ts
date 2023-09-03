@@ -7,4 +7,5 @@ export const internalPrefix = '_',
     storeObjectName = 's',
     invalidBodyHandler = internalPrefix + 'i',
     prevParamIndex = internalPrefix + 't',
-    currentParamIndex = internalPrefix + 'e';
+    currentParamIndex = internalPrefix + 'e',
+    urlStartIndex = internalPrefix + 'a';

@@ -3,7 +3,7 @@ import { BodyParser, FetchMeta, Handler, WSContext } from './types';
 import Radx from './router';
 import composeRouter from './router/compose';
 import { convert, methodsLowerCase as methods } from './constants';
-import { nfHandler, requestObjectName, storeObjectName, wsPrefix } from './router/constants';
+import { nfHandler, requestObjectName, storeObjectName, urlStartIndex, wsPrefix } from './router/constants';
 
 /**
  * An error handler
@@ -39,11 +39,6 @@ interface Options extends Partial<TLSOptions>, Partial<ServerWebSocket<Request>>
      * This enables optimizations for path parsing
      */
     base?: string;
-
-    /**
-     * Choose to parse path or not
-     */
-    parsePath?: boolean;
 
     /**
      * The minimum length of the request domain.
@@ -97,7 +92,6 @@ export class Router<I extends Dict<any> = Dict<any>> {
      */
     constructor(opts: Options = {}) {
         Object.assign(this, opts);
-        if (!('parsePath' in opts)) this.parsePath = false;
 
         for (const method of methods) {
             const METHOD = method.toUpperCase();
@@ -356,9 +350,7 @@ export class Router<I extends Dict<any> = Dict<any>> {
 
         const res = composeRouter(
             this.router, this.callArgs, defaultReturn,
-            this.parsePath, this.parsePath ? 0 : (
-                this.base ? this.base.length + 1 : 'a'
-            ), this.fn400
+            this.base ? this.base.length + 1 : urlStartIndex, this.fn400
         );
 
         if (this.storage) {
@@ -440,16 +432,11 @@ function createWSHandler(name: string) {
 
 function getPathParser<T>(app: Router<T>) {
     const hostExists = !!app.base,
-        exactHostLen = hostExists ? app.base.length + 1 : 'a',
-        uriStart = app.uriLen || 12,
+        exactHostLen = hostExists ? app.base.length + 1 : urlStartIndex,
+        uriStart = app.uriLen ?? 12,
         url = requestObjectName + '.url',
         query = requestObjectName + '.query',
-        additionalPart = (hostExists ? '' : `const a=${url}.indexOf('/',${uriStart})+1;`);
-
-    if (app.parsePath)
-        return additionalPart
-            + `${query}=${url}.indexOf('?',${exactHostLen});`
-            + `${requestObjectName}.path=${query}===-1?${url}.substring(${exactHostLen}):${url}.substring(${exactHostLen},${query});`;
+        additionalPart = (hostExists ? '' : `const ${urlStartIndex}=${url}.indexOf('/',${uriStart})+1;`);
 
     return additionalPart + `${query}=${url}.indexOf('?',${exactHostLen});if(${query}===-1)${query}=${url}.length;`;
 }
