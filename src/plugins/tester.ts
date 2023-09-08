@@ -42,7 +42,7 @@ export function mock(app: Router, opts: MockOptions = {}) {
     if (oldBase) app.base = base;
     else app.uriLen = 8;
 
-    const meta = app.meta, fn = buildFetch(meta);
+    const { meta } = app;
 
     if (oldBase) {
         if (oldBase !== null) app.base = oldBase;
@@ -55,6 +55,8 @@ export function mock(app: Router, opts: MockOptions = {}) {
         console.info('Parameters value:', meta.values);
         console.info('Fetch function:', meta.body);
     }
+
+    const fn = buildFetch(meta);
 
     return {
         /**

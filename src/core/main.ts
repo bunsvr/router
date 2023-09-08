@@ -444,7 +444,7 @@ function getPathParser<T>(app: Router<T>) {
         uriStart = app.uriLen ?? 12,
         url = requestObjectName + '.url',
         query = requestObjectName + '.query',
-        additionalPart = (hostExists ? '' : `const ${urlStartIndex}=${url}.indexOf('/',${uriStart})+1;`);
+        additionalPart = (hostExists ? '' : `${urlStartIndex}=${url}.indexOf('/',${uriStart})+1;`);
 
     return additionalPart + `${query}=${url}.indexOf('?',${exactHostLen});if(${query}===-1)${query}=${url}.length;`;
 }

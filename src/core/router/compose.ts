@@ -1,6 +1,9 @@
 import Radx from ".";
 import { BodyParser } from "../types";
-import { currentParamIndex, handlerPrefix, invalidBodyHandler, prevParamIndex, rejectPrefix, requestObjectName, storeObjectName, urlStartIndex, wsPrefix } from "./constants";
+import {
+    currentParamIndex, handlerPrefix, invalidBodyHandler, prevParamIndex,
+    rejectPrefix, requestObjectName, storeObjectName, wsPrefix, urlStartIndex
+} from "./constants";
 import { Node, ParamNode } from "./types";
 
 interface HandlerDetails extends Dict<any> {

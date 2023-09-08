@@ -5,12 +5,12 @@ Bun.build({
     format: 'esm',
     target: 'bun',
     outdir: '.',
-    minify: true,
+    //minify: true,
     entrypoints: ['./src/index.ts']
 });
 
 // Generating types
-const dir = './types'; 
+const dir = './types';
 if (existsSync(dir)) rmSync(dir, { recursive: true });
 
 // Build type declarations

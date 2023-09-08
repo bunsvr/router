@@ -5,7 +5,7 @@ import { Router, macro, mock } from '..';
 const predefinedBody = { hi: 'there' }, invalidBody = { status: 400 };
 
 // Create the function;
-const app = new Router({ base: 'http://localhost:3000' })
+const app = new Router()
     .get('/', macro('Hi'))
 
     .get('/id/:id', req => new Response(req.params.id))

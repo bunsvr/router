@@ -48,6 +48,10 @@ export interface Context<P extends string = string, D extends BodyParser = 'none
      * Request query start index (include `?`).
      */
     query: number;
+    /**
+     * Request path start index (skip first `/`)
+     */
+    path: number;
 }
 
 /**

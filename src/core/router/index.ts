@@ -1,4 +1,4 @@
-import { Node, FindResult, ParamNode } from './types';
+import { Node, ParamNode } from './types';
 
 const createNode = <T>(part: string, inert?: Node<T>[]): Node<T> => ({
     part,
@@ -30,7 +30,7 @@ export class Radx<T = any> {
         params: /:.+?(?=\/|$)/g
     };
 
-    add(path: string): FindResult<T>[0] {
+    add(path: string) {
         if (typeof path !== 'string')
             throw new TypeError('Route path must be a string');
 
