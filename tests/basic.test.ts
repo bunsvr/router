@@ -2,7 +2,7 @@
 import { test, expect } from 'bun:test';
 import { Router, macro, mock } from '..';
 
-const predefinedBody = { hi: 'there' };
+const predefinedBody = { hi: 'there' }, invalidBody = { status: 400 };
 
 // Create the function;
 const app = new Router({ base: 'http://localhost:3000' })
@@ -21,7 +21,8 @@ const app = new Router({ base: 'http://localhost:3000' })
 
     .all('/json/*', req => new Response(req.params['*']))
 
-    .use(404);
+    .use(404)
+    .use(400, e => new Response(String(e), invalidBody));
 
 const tester = mock(app, { logLevel: 3 });
 
@@ -69,3 +70,8 @@ test('404', async () => {
     expect(res).toBe('No enter!');
 });
 
+test('400', async () => {
+    const res = await tester.code('/json', { method: 'POST' });
+
+    expect(res).toBe(400);
+});

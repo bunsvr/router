@@ -1,7 +1,3 @@
-export interface FindResult<T> extends Record<string, any> {
-    '_': T
-};
-
 export interface ParamNode<T> {
     paramName: string
     store: T | null

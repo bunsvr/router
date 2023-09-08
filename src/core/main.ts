@@ -12,6 +12,13 @@ export interface ErrorHandler {
     (this: Server, err: Errorlike): any
 }
 
+/**
+ * Handle body parsing error
+ */
+export interface BodyHandler {
+    (err: any, ...args: Parameters<Handler>): any;
+}
+
 interface Options extends Partial<TLSOptions>, Partial<ServerWebSocket<Request>>, GenericServeOptions {
     serverNames?: Record<string, TLSOptions>;
 
@@ -176,7 +183,7 @@ export class Router<I extends Dict<any> = Dict<any>> {
      * @param type
      * @param handler
      */
-    use(type: 400, handler: Handler): this;
+    use(type: 400, handler: BodyHandler): this;
 
     /**
      * Add the default 400 handler to the router when parsing body failed
@@ -398,6 +405,7 @@ export class Router<I extends Dict<any> = Dict<any>> {
      * @param server Current Bun server
      */
     get fetch() {
+        if (globalThis.Bun) globalThis.Bun.gc(true);
         return buildFetch(this.meta);
     };
 
@@ -449,4 +457,4 @@ export function buildFetch(meta: FetchMeta): (req: Request) => any {
 }
 
 export default Router;
-export { Radx, composeRouter as compose };
+export { Radx };

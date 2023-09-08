@@ -50,7 +50,7 @@ export class Radx<T = any> {
 
         let node: Node<T>;
 
-        if (!this.root) this.root = createNode<T>(''); 
+        if (!this.root) this.root = createNode<T>('');
         node = this.root;
 
         let paramPartsIndex = 0;
@@ -150,7 +150,7 @@ export class Radx<T = any> {
         // The final part is static
         if (node.store === null) node.store = Object.create(null);
         return node.store;
-    } 
+    }
 }
 
 export default Radx;

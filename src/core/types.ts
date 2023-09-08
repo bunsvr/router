@@ -48,12 +48,6 @@ export interface Context<P extends string = string, D extends BodyParser = 'none
      * Request query start index (include `?`).
      */
     query: number;
-
-    /**
-     * The parsed request path. 
-     * Example: `http://localhost:3000/id/90` -> `id/90`
-     */
-    path: string;
 }
 
 /**

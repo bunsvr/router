@@ -12,6 +12,12 @@ interface HandlerDetails extends Dict<any> {
     __catchBody: string,
 }
 
+function hasManyArgs(fn: Function) {
+    let str = fn.toString(), st = str.indexOf('('), ed = str.indexOf(')');
+    str = str.substring(st, ed);
+    return str.includes(',');
+}
+
 export default function composeRouter(
     router: Radx, callArgs: string, __defaultReturn: string,
     startIndex: number | string, fn400: any
@@ -25,7 +31,9 @@ export default function composeRouter(
 
     if (fn400) {
         handlersRec[invalidBodyHandler] = fn400;
-        handlersRec.__catchBody = `.catch(()=>${invalidBodyHandler}(${callArgs}))`;
+        handlersRec.__catchBody = hasManyArgs(fn400)
+            ? `.catch(_=>${invalidBodyHandler}(_,${callArgs}))`
+            : `.catch(${invalidBodyHandler})`;
     } else if (fn400 === false) {
         const t = { status: 400 };
         handlersRec[invalidBodyHandler] = () => new Response(null, t);
