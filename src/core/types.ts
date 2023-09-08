@@ -49,7 +49,8 @@ export interface Context<P extends string = string, D extends BodyParser = 'none
      */
     query: number;
     /**
-     * Request path start index (skip first `/`)
+     * Request path start index (skip first `/`).
+     * This field only exists only if `base` is not specified
      */
     path: number;
 }
