@@ -8,4 +8,5 @@ export const internalPrefix = '_',
     invalidBodyHandler = internalPrefix + 'i',
     prevParamIndex = internalPrefix + 't',
     currentParamIndex = internalPrefix + 'e',
-    urlStartIndex = requestObjectName + '.path';
+    urlStartIndex = requestObjectName + '.path',
+    requestMethod = requestObjectName + '.method';

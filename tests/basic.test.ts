@@ -24,6 +24,8 @@ const app = new Router()
     .use(404)
     .use(400, e => new Response(String(e), invalidBody));
 
+// app.fetch
+
 const tester = mock(app, { logLevel: 3 });
 
 // GET / should returns 'Hi'

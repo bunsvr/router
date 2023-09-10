@@ -22,6 +22,9 @@ const createParamNode = <T>(paramName: string): ParamNode<T> => ({
     inert: null
 });
 
+/**
+ * The base data structure for Stric router
+ */
 export class Radx<T = any> {
     root: Node<T>;
 

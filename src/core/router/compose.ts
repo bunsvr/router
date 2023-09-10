@@ -2,9 +2,9 @@ import Radx from ".";
 import { BodyParser } from "../types";
 import {
     currentParamIndex, handlerPrefix, invalidBodyHandler, prevParamIndex,
-    rejectPrefix, requestObjectName, storeObjectName, wsPrefix, urlStartIndex
+    rejectPrefix, requestObjectName, storeObjectName, wsPrefix, urlStartIndex, requestMethod
 } from "./constants";
-import { Node, ParamNode } from "./types";
+import { Node } from "./types";
 
 interface HandlerDetails extends Dict<any> {
     __index: number,
@@ -13,29 +13,33 @@ interface HandlerDetails extends Dict<any> {
     __pathLen: string | null,
     __rejectIndex: number,
     __catchBody: string,
+    __callArgs: string
 }
 
 function hasManyArgs(fn: Function) {
-    let str = fn.toString(), st = str.indexOf('('), ed = str.indexOf(')');
+    let str = fn.toString(),
+        st = str.indexOf('('),
+        ed = str.indexOf(')');
     str = str.substring(st, ed);
     return str.includes(',');
 }
 
 export default function composeRouter(
-    router: Radx, callArgs: string, __defaultReturn: string,
+    router: Radx, __callArgs: string, __defaultReturn: string,
     startIndex: number | string, fn400: any
 ) {
     const handlersRec: HandlerDetails = {
         __index: 0, __defaultReturn,
         __pathStr: requestObjectName + '.url',
         __pathLen: requestObjectName + '.query',
-        __rejectIndex: 0, __catchBody: ''
+        __rejectIndex: 0, __catchBody: '',
+        __callArgs
     }, methodsLiterals = [], fnHandlers = []; // Save handlers of methods
 
     if (fn400) {
         handlersRec[invalidBodyHandler] = fn400;
         handlersRec.__catchBody = hasManyArgs(fn400)
-            ? `.catch(_=>${invalidBodyHandler}(_,${callArgs}))`
+            ? `.catch(_=>${invalidBodyHandler}(_,${__callArgs}))`
             : `.catch(${invalidBodyHandler})`;
     } else if (fn400 === false) {
         const t = { status: 400 };
@@ -43,8 +47,7 @@ export default function composeRouter(
         handlersRec.__catchBody = `.catch(${invalidBodyHandler})`;
     }
 
-    fixNode(router.root);
-    const composedBody = composeNode(router.root, callArgs, handlersRec, startIndex);
+    const composedBody = composeNode(router.root, false, handlersRec, startIndex);
 
     for (const itemName in handlersRec) {
         if (itemName.startsWith('__')) continue;
@@ -73,12 +76,18 @@ function plus(num: string | number, val: number) {
 
 function composeNode(
     node: Node<any>,
-    callArgs: string,
+    isNormalInert: boolean,
     handlers: HandlerDetails,
     fullPartPrevLen: number | string = 0,
     hasParams: boolean = false,
-    backupParamIndexExists: boolean = false
+    backupParamIndexExists: boolean = false,
 ) {
+    // Only fix inert
+    if (isNormalInert && !('fixed' in node)) {
+        node.part = node.part.substring(1);
+        node.fixed = true;
+    }
+
     const currentPathLen = plus(fullPartPrevLen, node.part.length);
     let str = '', queue = '';
 
@@ -101,31 +110,32 @@ function composeNode(
     if (node.store !== null) {
         // Resolve guard
         if (node.store.GUARD) {
-            const [h, q] = guardCheck(handlers, node.store, callArgs);
-            queue += q;
-            str += h;
+            const res = guardCheck(handlers, node.store);
+            // Add to queue the needed string 
+            queue += res[1];
+            // Add to str the function body
+            str += res[0];
         }
 
         // @ts-ignore Check if any other handler is provided other than GUARD and REJECT
-        if (Object.keys(node.store).length - !!node.store.GUARD - !!node.store.REJECT >= 1)
-            str += `if(${handlers.__pathLen}===${currentPathLen}){${getStoreCall(node.store, callArgs, handlers)}}`;
+        if (Object.keys(node.store).length - !!node.store.GUARD - !!node.store.REJECT > 0)
+            str += `if(${handlers.__pathLen}===${currentPathLen}){${getStoreCall(node.store, handlers)}}`;
     }
 
     if (node.inert !== null) {
         const keys = Array.from(node.inert.keys());
         if (keys.length === 1)
             str += `if(${handlers.__pathStr}.charCodeAt(${currentPathLen})===${keys[0]}){${composeNode(
-                node.inert.get(keys[0]), callArgs, handlers,
-                plus(currentPathLen, 1),
+                node.inert.get(keys[0]), true,
+                handlers, plus(currentPathLen, 1),
                 hasParams, backupParamIndexExists
-            )
-                }}`;
+            )}}`;
         else {
             str += `switch(${handlers.__pathStr}.charCodeAt(${currentPathLen})){`
             for (const key of keys)
                 str += `case ${key}:${composeNode(
-                    node.inert.get(key), callArgs, handlers,
-                    plus(currentPathLen, 1),
+                    node.inert.get(key), true,
+                    handlers, plus(currentPathLen, 1),
                     hasParams, backupParamIndexExists
                 )}${handlers.__defaultReturn};`
             str += '}';
@@ -155,7 +165,7 @@ function composeNode(
             str += `if(${hasInert ? currentParamIndex : nextSlash}===-1){${requestObjectName}.params${hasParams
                 ? `.${node.params.paramName}=${pathSubstr}`
                 : `={${node.params.paramName}:${pathSubstr}}`
-                };${getStoreCall(node.params.store, callArgs, handlers)}}`;
+                };${getStoreCall(node.params.store, handlers)}}`;
         }
 
         const pathSubstr = `${handlers.__pathStr}.substring(${indexFrom},${currentParamIndex})`,
@@ -171,7 +181,7 @@ function composeNode(
                 || currentPathLen.startsWith(urlStartIndex) ? plus(currentParamIndex, 1) : plus(currentPathLen, 1);
 
             const composeRes = composeNode(
-                node.params.inert, callArgs, handlers,
+                node.params.inert, false, handlers,
                 newPathLen, true, !pathLenIsNum
             );
 
@@ -182,13 +192,13 @@ function composeNode(
     }
 
     if (node.wildcardStore !== null) {
-        const pathSubstr = `${handlers.__pathStr}${currentPathLen === 0 && handlers.__parsePath ? '' : `.substring(${currentPathLen})`
-            }`;
+        const pathSubstr = `${handlers.__pathStr}${currentPathLen === 0 && handlers.__parsePath
+            ? '' : `.substring(${currentPathLen})`}`;
 
         str += requestObjectName + '.' + (hasParams
             ? `params['*']=${pathSubstr}`
             : `params={'*':${pathSubstr}}`);
-        str += `;${getStoreCall(node.wildcardStore, callArgs, handlers)}`;
+        str += `;${getStoreCall(node.wildcardStore, handlers)}`;
 
         hasParams = true;
     }
@@ -197,55 +207,75 @@ function composeNode(
     return str + queue;
 }
 
-export function fixNode(currentNode: Node<any> | ParamNode<any>, isInert: boolean = false) {
-    // Not a parametric node
-    if ('part' in currentNode) {
-        // @ts-ignore Check whether this node is an inert and not a parametric node and is fixed or not
-        if (isInert && !currentNode.isFixed) {
-            currentNode.part = currentNode.part.substring(1);
-            // @ts-ignore
-            currentNode.isFixed = true;
-        }
-
-        if (currentNode.inert !== null) for (const item of currentNode.inert)
-            fixNode(item[1], true);
-
-        if (currentNode.params !== null) fixNode(currentNode.params, false);
-    } else if (currentNode.inert !== null) fixNode(currentNode.inert, false);
-}
-
 function isAsync(fn: any) {
     if (typeof fn === 'function') return fn.constructor.name === 'AsyncFunction';
     throw new Error('Guard should be a function, instead recieved: ' + fn);
 }
 
-export function getStoreCall(fn: any, callArgs: string, handlers: HandlerDetails) {
-    let str = '', queue = '';
+/**
+ * Choose the best check for a method group
+ */
+export function methodSplit(fn: any, handlers: HandlerDetails) {
+    let method: string, hasP = false;
+    const methods = [];
 
-    for (const method in fn) {
+    for (method in fn) {
         switch (method) {
-            case 'ALL': case 'GUARD': case 'REJECT': continue;
-            default: str += `if(${checkMethodExpr(method)})${storeCheck(fn[method], handlers, callArgs, handlers.__index)}`;
+            case 'ALL':
+            case 'GUARD':
+            case 'REJECT':
+                continue;
+
+            case 'POST':
+            case 'PATCH':
+            case 'PUT':
+                hasP = true;
+
+            default:
+                methods.push(method);
         }
     }
 
-    if ('ALL' in fn) str += storeCheck(fn['ALL'], handlers, callArgs, handlers.__index);
-    // If guard does exists
-    else if (queue !== '') queue += handlers.__defaultReturn;
+    if (methods.length === 1)
+        return `if(${checkMethodExpr(methods[0])})${storeCheck(fn[methods[0]], handlers)}`;
 
-    return str + queue;
+    let str = `switch(${requestMethod}`;
+    if (hasP) {
+        str += '){';
+
+        for (method of methods)
+            str += `case'${method}':${storeCheck(fn[method], handlers)}`;
+    } else {
+        str += `.charCodeAt(0)){`;
+
+        for (method of methods)
+            str += `case ${method.charCodeAt(0)}:${storeCheck(fn[method], handlers)}`;
+    }
+
+    return str + '}';
 }
 
-export function storeCheck(fn: any, handlers: HandlerDetails, callArgs: string, index: number) {
-    if (typeof fn === 'number') return getWSHandler(fn, callArgs);
+/**
+ * Checking methods and run the handler
+ */
+export function getStoreCall(fn: any, handlers: HandlerDetails) {
+    let str = methodSplit(fn, handlers);
+    if ('ALL' in fn) str += storeCheck(fn['ALL'], handlers);
+    return str;
+}
+
+/**
+ * Run the store
+ */
+export function storeCheck(fn: any, handlers: HandlerDetails) {
+    if (typeof fn === 'number') return getWSHandler(fn, handlers.__callArgs);
     if (fn.isMacro && !fn.body) return getMacroStr(fn);
 
     handlers[handlerPrefix + handlers.__index] = fn;
-    ++handlers.__index;
 
     let str = 'return ', methodCall = fn.isMacro
         ? getMacroStr(fn)
-        : `${handlerPrefix}${index}(${callArgs});`;
+        : `${handlerPrefix}${handlers.__index}(${handlers.__callArgs});`;
 
     if (fn.body && fn.body !== 'none') {
         if (!fn.isMacro) methodCall = 'return ' + methodCall;
@@ -262,15 +292,21 @@ export function storeCheck(fn: any, handlers: HandlerDetails, callArgs: string, 
 
         str += `().then(_=>{${requestObjectName}.data=_;${methodCall}})${handlers.__catchBody};`
     } else str += methodCall;
+
+    ++handlers.__index;
+
     return str;
 }
 
-function guardCheck(handlers: HandlerDetails, store: any, args: string) {
+/**
+ * Handle GUARD and REJECT
+ */
+function guardCheck(handlers: HandlerDetails, store: any) {
     let returnStatement = handlers.__defaultReturn, str = '', queue = '';
     // Check if a reject does exists to customize handling
     if (store.REJECT) {
         handlers[rejectPrefix + handlers.__rejectIndex] = store.REJECT;
-        returnStatement = `return ${rejectPrefix}${handlers.__rejectIndex}(${args})`;
+        returnStatement = `return ${rejectPrefix}${handlers.__rejectIndex}(${handlers.__callArgs})`;
         ++handlers.__rejectIndex;
     }
 
@@ -278,36 +314,41 @@ function guardCheck(handlers: HandlerDetails, store: any, args: string) {
     handlers[handlerPrefix + handlers.__index] = guardFn;
 
     if (isAsync(guardFn)) {
-        str += `return ${handlerPrefix}${handlers.__index}(${args}).then(_=>{if(_===null)${returnStatement};`;
+        str += `return ${handlerPrefix}${handlers.__index}(${handlers.__callArgs}).then(_=>{if(_===null)${returnStatement};`;
         queue = '});';
-    } else str += `if(${handlerPrefix}${handlers.__index}(${args})===null)${returnStatement};`;
+    } else str += `if(${handlerPrefix}${handlers.__index}(${handlers.__callArgs})===null)${returnStatement};`;
 
     ++handlers.__index;
     return [str, queue];
 }
 
+/**
+ * Return the best check for one method
+ */
 function checkMethodExpr(method: string) {
-    const m = requestObjectName + '.method'
-
     switch (method) {
-        case 'GET': return m + '.charCodeAt(0)===' + 'G'.charCodeAt(0)
-        case 'POST': return m + '.charCodeAt(2)===' + 'S'.charCodeAt(0)
-        case 'PUT': return m + '.charCodeAt(0)===' + 'P'.charCodeAt(0)
-        case 'DELETE': return m + '.length===6'
-        case 'PATCH': return m + '.charCodeAt(1)===' + 'A'.charCodeAt(0)
-        case 'CONNECT': return m + '.charCodeAt(2)===' + 'N'.charCodeAt(0)
-        case 'OPTIONS': return m + '.charCodeAt(0)===' + 'O'.charCodeAt(0)
-        case 'TRACE': return m + '.charCodeAt(0)===' + 'T'.charCodeAt(0)
+        case 'GET': return requestMethod + '.charCodeAt(0)===' + 'G'.charCodeAt(0)
+        case 'POST': return requestMethod + '.charCodeAt(2)===' + 'S'.charCodeAt(0)
+        case 'PUT': return requestMethod + '.charCodeAt(0)===' + 'P'.charCodeAt(0)
+        case 'DELETE': return requestMethod + '.length===6'
+        case 'PATCH': return requestMethod + '.charCodeAt(1)===' + 'A'.charCodeAt(0)
+        case 'CONNECT': return requestMethod + '.charCodeAt(2)===' + 'N'.charCodeAt(0)
+        case 'OPTIONS': return requestMethod + '.charCodeAt(0)===' + 'O'.charCodeAt(0)
+        case 'TRACE': return requestMethod + '.charCodeAt(0)===' + 'T'.charCodeAt(0)
     }
 }
 
+/**
+ * Return the literal for WS upgrade
+ */
 function getWSHandler(fnIndex: number, callArgs: string) {
-    const hasStore = callArgs.length >= 3;
-    return `return this.upgrade(${requestObjectName},{data:{_:${wsPrefix}${fnIndex},ctx:${requestObjectName}${hasStore
-        ? `,store:${storeObjectName}` : ''
-        }}});`;
+    return `return this.upgrade(${requestObjectName},{data:{_:${wsPrefix}${fnIndex},ctx:${requestObjectName
+        }${callArgs.includes(storeObjectName) ? `,store:${storeObjectName}` : ''}}});`;
 }
 
+/**
+ * Get the function body of a macro
+ */
 function getMacroStr(handler: any) {
     let macro = handler.toString();
 

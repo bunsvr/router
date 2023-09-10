@@ -1,5 +1,5 @@
-import { Errorlike, GenericServeOptions, Server, ServerWebSocket, TLSOptions, WebSocketHandler } from 'bun';
-import { BodyParser, FetchMeta, Handler, WSContext } from './types';
+import type { Errorlike, Server, WebSocketHandler, Serve } from 'bun';
+import { BodyParser, FetchMeta, Handler, WSContext, ConcatPath, ServeOptions } from './types';
 import Radx from './router';
 import composeRouter from './router/compose';
 import { convert, methodsLowerCase as methods } from './constants';
@@ -19,48 +19,15 @@ export interface BodyHandler {
     (err: any, ...args: Parameters<Handler>): any;
 }
 
-interface Options extends Partial<TLSOptions>, Partial<ServerWebSocket<Request>>, GenericServeOptions {
-    serverNames?: Record<string, TLSOptions>;
-
-    /**
-     * Enable websockets with {@link Bun.serve}
-     * 
-     * For simpler type safety, see {@link Bun.websocket}
-     */
-    websocket?: WebSocketHandler;
-
-    /**
-     * An error handler
-     * @param this 
-     * @param request 
-     */
-    error?: ErrorHandler;
-
-    /**
-     * Enable inspect mode
-     */
-    inspector?: boolean;
-
-    /**
-     * Should be set to something like `http://localhost:3000`
-     * This enables optimizations for path parsing
-     */
-    base?: string;
-
-    /**
-     * The minimum length of the request domain.
-     *
-     * Use this instead of `base` to work with subdomain
-     */
-    uriLen?: number;
-}
-
 type HttpMethod = 'get' | 'post' | 'put' | 'delete' | 'connect' | 'options' | 'trace' | 'patch' | 'all' | 'guard' | 'reject';
-export type RouterMethods<I extends Dict<any>> = {
+export type RouterMethods<I extends Dict<any>, R extends string> = {
     [K in HttpMethod]: <T extends string, O extends { body: BodyParser } = { body: 'none' }>(
         path: T, handler: O extends { body: infer B }
-            ? (B extends BodyParser ? Handler<T, I, B> : Handler<T, I>)
-            : Handler<T, I>,
+            ? (
+                B extends BodyParser
+                ? Handler<ConcatPath<R, T>, I, B>
+                : Handler<ConcatPath<R, T>, I>
+            ) : Handler<ConcatPath<R, T>, I>,
         options?: O
     ) => Router<I>;
 };
@@ -68,15 +35,15 @@ export type RouterMethods<I extends Dict<any>> = {
 /**
  * Specific plugin for router
  */
-export interface Plugin<I extends Dict<any> = Dict<any>> {
-    (app: Router<I>): any;
+export interface Plugin<I extends Dict<any> = Dict<any>, R = any> {
+    (app: Router<I>): R;
 }
 
-type RouterPlugin<I extends Dict<any>> = Plugin<I> | {
-    plugin: Plugin<I>
+type RouterPlugin<I extends Dict<any>, R = any> = Plugin<I, R> | {
+    plugin: Plugin<I, R>
 };
 
-export interface Router<I> extends Options, RouterMethods<I> { };
+export interface Router<I> extends ServeOptions, RouterMethods<I, '/'> { };
 
 /**
  * A Stric router
@@ -90,14 +57,16 @@ export class Router<I extends Dict<any> = Dict<any>> {
     router: Radx<Handler>;
     private fn404: Handler;
     private fn400: Handler;
-    storage: I;
-    injects: Record<string, any>;
+    readonly storage: I;
+    private injects: Record<string, any>;
     record: Record<string, Record<string, Handler>> = {};
 
     /**
-     * Create a router
+     * Create a router.
+     *
+     * If a `PORT` env is set, the port will be the value specified.
      */
-    constructor(opts: Options = {}) {
+    constructor(opts: Partial<Serve> = {}) {
         Object.assign(this, opts);
 
         for (const method of methods) {
@@ -108,6 +77,8 @@ export class Router<I extends Dict<any> = Dict<any>> {
                 return this.use(METHOD, path, handler);
             }
         }
+
+        if (Bun.env.PORT) this.port = Number(Bun.env.PORT);
     }
 
     /**
@@ -421,10 +392,9 @@ export class Router<I extends Dict<any> = Dict<any>> {
 const serverError = { status: 500 };
 const default505 = () => new Response(null, serverError);
 
-export function macro<T extends string>(fn: Handler<T> | string): Handler<T> {
+export function macro<T extends string>(fn: Handler<T> | string): Handler<any> {
     if (typeof fn === 'string') return macro(Function(`return()=>new Response('${fn}')`)());
 
-    // @ts-ignore detect by createFetch
     fn.isMacro = true;
     return fn;
 }

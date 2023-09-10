@@ -63,6 +63,10 @@ export interface Handler<T extends string = string, I extends Dict<any> = {}, B 
      * @param request The current request
      */
     (ctx: Context<T, B>, store: Check<I>): any;
+    /**
+     * Detect whether this handler is a macro
+     */
+    isMacro?: boolean;
 }
 
 // Override 
@@ -84,6 +88,11 @@ declare global {
 export type BodyParser = 'json' | 'text' | 'form' | 'blob' | 'buffer' | 'none';
 
 /**
+ * Concat path
+ */
+export type ConcatPath<A extends string, B extends string> = `${A extends `${infer C}/` ? C : A}${B}`;
+
+/**
  * Fetch metadatas
  */
 export interface FetchMeta {
@@ -101,4 +110,30 @@ export interface FetchMeta {
      * All values corresponding to the parameters
      */
     values: any[];
-} 
+}
+
+import {
+    ServeOptions as BasicServeOptions, TLSServeOptions, TLSWebSocketServeOptions, WebSocketServeOptions
+} from 'bun';
+
+interface AllOptions extends BasicServeOptions, TLSServeOptions, WebSocketServeOptions, TLSWebSocketServeOptions { }
+
+export interface ServeOptions extends Partial<AllOptions> {
+    /**
+     * Enable inspect mode
+     */
+    inspector?: boolean;
+
+    /**
+     * Should be set to something like `http://localhost:3000`
+     * This enables optimizations for path parsing but does not work with subdomain
+     */
+    base?: string;
+
+    /**
+     * The minimum length of the request domain.
+     *
+     * Use this instead of `base` to work with subdomain
+     */
+    uriLen?: number;
+}
