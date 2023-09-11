@@ -1,3 +1,5 @@
+import type { Server, Errorlike } from 'bun';
+
 type Check<T> = keyof T extends never ? undefined : T;
 type ExtractParams<T extends string> = T extends `${infer Segment}/${infer Rest}`
     ? (Segment extends `:${infer Param}`
@@ -18,7 +20,7 @@ type ParserType<B extends BodyParser> = B extends 'text' ? string : (
     B extends 'json' ? Record<string | number, any> : (
         B extends 'form' ? FormData : (
             B extends 'buffer' ? ArrayBuffer : (
-                B extends 'blob' ? Blob : never
+                B extends 'blob' ? Blob : any
             )
         )
     )
@@ -28,14 +30,36 @@ type ParserType<B extends BodyParser> = B extends 'text' ? string : (
  * WebSocket data
  */
 export interface WSContext<P extends string = string, I extends Dict<any> = never> {
-    ctx: Context<P>;
+    ctx: Context<'none', P>;
     store: Check<I>;
 }
 
 /**
+ * All common headers name
+ */
+export type CommonHeader = "Content-Type" | "Authorization" | "User-Agent"
+    | "Access-Control-Allow-Origin" | "Access-Control-Max-Age" | "Access-Control-Allow-Headers"
+    | "Access-Control-Allow-Credentials" | "Access-Control-Expose-Headers" | "Vary" | "Accept"
+    | "Accept-Encoding" | "Accept-Language" | "Connection" | "Cache-Control" | "Set-Cookie" | "Cookie"
+    | "Referer" | "Content-Length" | "Date" | "Expect" | "Server" | "Location" | "If-Modified-Since" | "ETag"
+    | "X-XSS-Protection" | "X-Content-Type-Options" | "Referrer-Policy" | "Expect-CT" | "Content-Security-Policy"
+    | "Cross-Origin-Opener-Policy" | "Cross-Origin-Embedder-Policy" | "Cross-Origin-Resource-Policy"
+    | "Permissions-Policy" | "X-Powered-By" | "X-DNS-Prefetch-Control" | "Public-Key-Pins"
+    | "X-Frame-Options" | "Strict-Transport-Security";
+
+export type CommonHeaders = {
+    [head in CommonHeader]?: string;
+}
+
+/**
+ * Represent a `head` object
+ */
+export interface ContextHeaders extends CommonHeaders, Dict<string> { };
+
+/**
  * Represent a request context
  */
-export interface Context<P extends string = string, D extends BodyParser = 'none'> extends Request {
+export interface Context<D extends BodyParser = 'none', P extends string = string> extends Request {
     /**
      * Parsed request body
      */
@@ -43,17 +67,27 @@ export interface Context<P extends string = string, D extends BodyParser = 'none
     /**
      * Parsed request parameter with additional properties if specified
      */
-    params: Params<P>;
+    params: Params<P> & Dict<any>;
     /**
      * Request query start index (include `?`).
      */
     query: number;
+    /**
+     * Request path start index (skip first `/`).
+     * This field only exists only if `base` is not specified
+     */
+    path: number;
 
     /**
-     * The parsed request path. 
-     * Example: `http://localhost:3000/id/90` -> `id/90`
+     * Set your custom heading here for response.
+     *
+     * This should be used with `guard` to add custom headers.
      */
-    path: string;
+    head: ContextHeaders;
+    /**
+     * The current server. Only usable when `opts.server` is set to `true`.
+     */
+    server: Server;
 }
 
 /**
@@ -63,16 +97,12 @@ export interface Handler<T extends string = string, I extends Dict<any> = {}, B 
     /**
      * @param request The current request
      */
-    (ctx: Context<T, B>, store: Check<I>): any;
-}
-
-// Override 
-declare global {
+    (ctx: Context<B, T>, store: Check<I>): any;
     /**
-     * The current running server. Only usable when app is run with `ls()`
+     * Detect whether this handler is a macro
      */
-    var server: import('bun').Server;
-};
+    isMacro?: boolean;
+}
 
 /**
  * Builtin body parser 
@@ -83,6 +113,11 @@ declare global {
  * - 'buffer': req.arrayBuffer()
  */
 export type BodyParser = 'json' | 'text' | 'form' | 'blob' | 'buffer' | 'none';
+
+/**
+ * Concat path
+ */
+export type ConcatPath<A extends string, B extends string> = `${A extends `${infer C}/` ? C : A}${B}`;
 
 /**
  * Fetch metadatas
@@ -102,4 +137,56 @@ export interface FetchMeta {
      * All values corresponding to the parameters
      */
     values: any[];
-} 
+}
+
+import {
+    ServeOptions as BasicServeOptions, TLSServeOptions, TLSWebSocketServeOptions, WebSocketServeOptions
+} from 'bun';
+
+interface AllOptions extends BasicServeOptions, TLSServeOptions, WebSocketServeOptions, TLSWebSocketServeOptions { }
+
+export interface ServeOptions extends Partial<AllOptions> {
+    /**
+     * Enable inspect mode
+     */
+    inspector?: boolean;
+
+    /**
+     * Should be set to something like `http://localhost:3000`
+     * This enables optimizations for path parsing but does not work with subdomain
+     */
+    base?: string;
+
+    /**
+     * The minimum length of the request domain.
+     *
+     * Use this instead of `base` to work with subdomain
+     */
+    uriLen?: number;
+}
+
+/**
+ * An error handler
+ */
+export interface ErrorHandler {
+    (this: Server, err: Errorlike): any
+}
+
+/**
+ * Handle body parsing error
+ */
+export interface BodyHandler {
+    (err: any, ...args: Parameters<Handler>): any;
+}
+
+export interface RouteOptions {
+    /**
+     * Select a body parser
+     */
+    body?: BodyParser;
+
+    /**
+     * Whether to access `req.server`
+     */
+    server?: boolean;
+}

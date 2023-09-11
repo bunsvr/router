@@ -1,14 +1,14 @@
 import { Plugin, Router, RouterMethods } from "../core/main";
-import type { Handler, WSContext } from "../core/types";
+import type { ConcatPath, Handler, WSContext } from "../core/types";
 import { convert, methodsLowerCase as methods } from "../core/constants";
 import type { WebSocketHandler } from "bun";
 
-export interface Group<I> extends RouterMethods<I> { }
+export interface Group<I, R extends string> extends RouterMethods<I, R> { }
 
 /**
  * A routes group. Can be used as a plugin
  */
-export class Group<I extends Dict<any> = Dict<any>> {
+export class Group<I extends Dict<any> = Dict<any>, R extends string = '/'> {
     private record: any[][];
     private plugins: Plugin[];
     private wsRecord: any[][];
@@ -16,7 +16,7 @@ export class Group<I extends Dict<any> = Dict<any>> {
     /**
      * Handle WebSocket
      */
-    ws<D extends Dict<any> = {}, T extends string = string>(path: T, handler: WebSocketHandler<WSContext<T, I> & D>) {
+    ws<D extends Dict<any> = {}, T extends string = string>(path: T, handler: WebSocketHandler<WSContext<ConcatPath<R, T>, I> & D>) {
         // Add a WebSocket handler
         this.wsRecord.push([path, handler]);
         return this;
@@ -26,8 +26,10 @@ export class Group<I extends Dict<any> = Dict<any>> {
      * Create a new routes group
      * @param root 
      */
-    constructor(public readonly root: string = '/') {
+    // @ts-ignore
+    constructor(public readonly root: R = '/') {
         if (root !== '/' && root.endsWith('/'))
+            // @ts-ignore
             root = root.slice(0, -1);
         this.root = root;
         this.record = [];

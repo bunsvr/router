@@ -1,0 +1,12 @@
+export const internalPrefix = '_',
+    handlerPrefix = internalPrefix + 'c',
+    rejectPrefix = internalPrefix + 'r',
+    wsPrefix = internalPrefix + 'w',
+    nfHandler = internalPrefix + 'n',
+    requestObjectName = 'r',
+    storeObjectName = 's',
+    invalidBodyHandler = internalPrefix + 'i',
+    prevParamIndex = internalPrefix + 't',
+    currentParamIndex = internalPrefix + 'e',
+    urlStartIndex = requestObjectName + '.path',
+    requestMethod = requestObjectName + '.method';

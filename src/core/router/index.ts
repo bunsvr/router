@@ -1,4 +1,4 @@
-import { Node, FindResult, ParamNode } from './types';
+import { Node, ParamNode } from './types';
 
 const createNode = <T>(part: string, inert?: Node<T>[]): Node<T> => ({
     part,
@@ -22,6 +22,9 @@ const createParamNode = <T>(paramName: string): ParamNode<T> => ({
     inert: null
 });
 
+/**
+ * The base data structure for Stric router
+ */
 export class Radx<T = any> {
     root: Node<T>;
 
@@ -30,7 +33,7 @@ export class Radx<T = any> {
         params: /:.+?(?=\/|$)/g
     };
 
-    add(path: string): FindResult<T>[0] {
+    add(path: string) {
         if (typeof path !== 'string')
             throw new TypeError('Route path must be a string');
 
@@ -50,7 +53,7 @@ export class Radx<T = any> {
 
         let node: Node<T>;
 
-        if (!this.root) this.root = createNode<T>(''); 
+        if (!this.root) this.root = createNode<T>('');
         node = this.root;
 
         let paramPartsIndex = 0;
@@ -150,7 +153,7 @@ export class Radx<T = any> {
         // The final part is static
         if (node.store === null) node.store = Object.create(null);
         return node.store;
-    } 
+    }
 }
 
 export default Radx;

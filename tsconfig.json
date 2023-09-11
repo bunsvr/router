@@ -1,7 +1,12 @@
 {
     "compilerOptions": {
         "module": "ESNext",
-        "types": ["bun-types"],
+        "lib": [
+            "ESNext"
+        ],
+        "types": [
+            "bun-types"
+        ],
         "esModuleInterop": true,
         "target": "ESNext",
         "skipDefaultLibCheck": true,
@@ -9,5 +14,7 @@
         "declaration": true,
         "emitDeclarationOnly": true
     },
-    "include": ["src"]
+    "include": [
+        "src"
+    ]
 }
