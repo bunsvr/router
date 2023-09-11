@@ -1,3 +1,5 @@
+import type { Server, Errorlike } from 'bun';
+
 type Check<T> = keyof T extends never ? undefined : T;
 type ExtractParams<T extends string> = T extends `${infer Segment}/${infer Rest}`
     ? (Segment extends `:${infer Param}`
@@ -28,14 +30,36 @@ type ParserType<B extends BodyParser> = B extends 'text' ? string : (
  * WebSocket data
  */
 export interface WSContext<P extends string = string, I extends Dict<any> = never> {
-    ctx: Context<P>;
+    ctx: Context<'none', P>;
     store: Check<I>;
 }
 
 /**
+ * All common headers name
+ */
+export type CommonHeader = "Content-Type" | "Authorization" | "User-Agent"
+    | "Access-Control-Allow-Origin" | "Access-Control-Max-Age" | "Access-Control-Allow-Headers"
+    | "Access-Control-Allow-Credentials" | "Access-Control-Expose-Headers" | "Vary" | "Accept"
+    | "Accept-Encoding" | "Accept-Language" | "Connection" | "Cache-Control" | "Set-Cookie" | "Cookie"
+    | "Referer" | "Content-Length" | "Date" | "Expect" | "Server" | "Location" | "If-Modified-Since" | "ETag"
+    | "X-XSS-Protection" | "X-Content-Type-Options" | "Referrer-Policy" | "Expect-CT" | "Content-Security-Policy"
+    | "Cross-Origin-Opener-Policy" | "Cross-Origin-Embedder-Policy" | "Cross-Origin-Resource-Policy"
+    | "Permissions-Policy" | "X-Powered-By" | "X-DNS-Prefetch-Control" | "Public-Key-Pins"
+    | "X-Frame-Options" | "Strict-Transport-Security";
+
+export type CommonHeaders = {
+    [head in CommonHeader]?: string;
+}
+
+/**
+ * Represent a `head` object
+ */
+export interface ContextHeaders extends CommonHeaders, Dict<string> { };
+
+/**
  * Represent a request context
  */
-export interface Context<P extends string = string, D extends BodyParser = 'none'> extends Request {
+export interface Context<D extends BodyParser = 'none', P extends string = string> extends Request {
     /**
      * Parsed request body
      */
@@ -53,6 +77,17 @@ export interface Context<P extends string = string, D extends BodyParser = 'none
      * This field only exists only if `base` is not specified
      */
     path: number;
+
+    /**
+     * Set your custom heading here for response.
+     *
+     * This should be used with `guard` to add custom headers.
+     */
+    head: ContextHeaders;
+    /**
+     * The current server. Only usable when `opts.server` is set to `true`.
+     */
+    server: Server;
 }
 
 /**
@@ -62,20 +97,12 @@ export interface Handler<T extends string = string, I extends Dict<any> = {}, B 
     /**
      * @param request The current request
      */
-    (ctx: Context<T, B>, store: Check<I>): any;
+    (ctx: Context<B, T>, store: Check<I>): any;
     /**
      * Detect whether this handler is a macro
      */
     isMacro?: boolean;
 }
-
-// Override 
-declare global {
-    /**
-     * The current running server. Only usable when app is run with `ls()`
-     */
-    var server: import('bun').Server;
-};
 
 /**
  * Builtin body parser 
@@ -136,4 +163,30 @@ export interface ServeOptions extends Partial<AllOptions> {
      * Use this instead of `base` to work with subdomain
      */
     uriLen?: number;
+}
+
+/**
+ * An error handler
+ */
+export interface ErrorHandler {
+    (this: Server, err: Errorlike): any
+}
+
+/**
+ * Handle body parsing error
+ */
+export interface BodyHandler {
+    (err: any, ...args: Parameters<Handler>): any;
+}
+
+export interface RouteOptions {
+    /**
+     * Select a body parser
+     */
+    body?: BodyParser;
+
+    /**
+     * Whether to access `req.server`
+     */
+    server?: boolean;
 }

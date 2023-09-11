@@ -24,9 +24,12 @@ const app = new Router()
     .use(404)
     .use(400, e => new Response(String(e), invalidBody));
 
-// app.fetch
+console.time('Build fetch');
+const tester = mock(app, { logLevel: 1 });
 
-const tester = mock(app, { logLevel: 3 });
+// Report process memory usage and build time
+console.log(process.memoryUsage());
+console.timeEnd('Build fetch');
 
 // GET / should returns 'Hi'
 test('GET /', async () => {

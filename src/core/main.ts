@@ -1,27 +1,13 @@
-import type { Errorlike, Server, WebSocketHandler, Serve } from 'bun';
-import { BodyParser, FetchMeta, Handler, WSContext, ConcatPath, ServeOptions } from './types';
+import type { WebSocketHandler, Serve } from 'bun';
+import { BodyParser, FetchMeta, Handler, WSContext, ConcatPath, ServeOptions, BodyHandler, ErrorHandler, RouteOptions } from './types';
 import Radx from './router';
 import composeRouter from './router/compose';
 import { convert, methodsLowerCase as methods } from './constants';
 import { nfHandler, requestObjectName, storeObjectName, urlStartIndex, wsPrefix } from './router/constants';
 
-/**
- * An error handler
- */
-export interface ErrorHandler {
-    (this: Server, err: Errorlike): any
-}
-
-/**
- * Handle body parsing error
- */
-export interface BodyHandler {
-    (err: any, ...args: Parameters<Handler>): any;
-}
-
 type HttpMethod = 'get' | 'post' | 'put' | 'delete' | 'connect' | 'options' | 'trace' | 'patch' | 'all' | 'guard' | 'reject';
 export type RouterMethods<I extends Dict<any>, R extends string> = {
-    [K in HttpMethod]: <T extends string, O extends { body: BodyParser } = { body: 'none' }>(
+    [K in HttpMethod]: <T extends string, O extends RouteOptions>(
         path: T, handler: O extends { body: infer B }
             ? (
                 B extends BodyParser
@@ -36,12 +22,8 @@ export type RouterMethods<I extends Dict<any>, R extends string> = {
  * Specific plugin for router
  */
 export interface Plugin<I extends Dict<any> = Dict<any>, R = any> {
-    (app: Router<I>): R;
+    (app: Router<I>): Router<I & R> | void | Promise<Router<I & R> | void>
 }
-
-type RouterPlugin<I extends Dict<any>, R = any> = Plugin<I, R> | {
-    plugin: Plugin<I, R>
-};
 
 export interface Router<I> extends ServeOptions, RouterMethods<I, '/'> { };
 
@@ -69,7 +51,8 @@ export class Router<I extends Dict<any> = Dict<any>> {
     constructor(opts: Partial<Serve> = {}) {
         Object.assign(this, opts);
 
-        for (const method of methods) {
+        let method: string;
+        for (method of methods) {
             const METHOD = method.toUpperCase();
             this[method] = (path: string, handler: Handler, opts: any) => {
                 if (opts) for (const prop in opts)
@@ -78,6 +61,7 @@ export class Router<I extends Dict<any> = Dict<any>> {
             }
         }
 
+        // Automatically set port
         if (Bun.env.PORT) this.port = Number(Bun.env.PORT);
     }
 
@@ -88,7 +72,10 @@ export class Router<I extends Dict<any> = Dict<any>> {
         if (origin in this.record) {
             if (!(name in this.record)) this.record[name] = {};
 
-            Object.assign(this.record[name], this.record[origin]);
+            let k: string;
+            for (k in this.record[origin])
+                this.record[name][k] = this.record[origin][k];
+
             return this;
         }
         throw new Error('Origin pathname not registered yet!');
@@ -116,13 +103,10 @@ export class Router<I extends Dict<any> = Dict<any>> {
      * Inject a variable into the fetch function scope
      */
     inject(name: string, value: any) {
-        if (name[0] === '_')
+        if (name.charCodeAt(0) === 95)
             throw new Error('Name cannot have prefix `_` to avoid collision with internal parameters!');
 
         if (!this.injects) this.injects = {};
-
-        if (name in this.injects)
-            console.warn(`Injected name \`${name}\` conflicted with another name!`);
 
         this.injects[name] = value;
         return this;
@@ -186,21 +170,21 @@ export class Router<I extends Dict<any> = Dict<any>> {
         switch (args[0]) {
             case 404:
                 this.fn404 = args[1] || false;
-                return this;
+                break;
             case 400:
                 this.fn400 = args[1] || false;
-                return this;
+                break;
             case 500:
             case 'error':
                 this.error = args[1] || default505;
-                return this;
+                break;
             case 'store':
                 this.initStore();
                 Object.assign(this.storage, args[1]);
-                return this;
+                break;
             default:
                 // Normal parsing
-                let [method, path, handler] = args;
+                let [method, path, handler] = args, mth: string;
                 path = convert(path);
 
                 if (!Array.isArray(method))
@@ -208,11 +192,13 @@ export class Router<I extends Dict<any> = Dict<any>> {
 
                 if (!this.record[path]) this.record[path] = {};
 
-                for (const mth of method)
+                for (mth of method)
                     this.record[path][mth] = handler;
 
-                return this;
+                break;
         }
+
+        return this;
     }
 
     /**
@@ -230,26 +216,35 @@ export class Router<I extends Dict<any> = Dict<any>> {
      * Register this router as a plugin, which mount all routes, storage and injects (can be overritten)
      */
     plugin(app: Router) {
-        let o: any;
-        for (const path in this.record) {
-            o = this.record[path];
+        let k: string, k1: string;
 
-            if (path in app.record) Object.assign(app.record[path], o);
-            else app.record[path] = o;
+        // Assign route records
+        for (k in this.record) {
+            if (k in app.record)
+                for (k1 in this.record[k])
+                    app.record[k][k1] = this.record[k][k1];
+
+            else app.record[k] = this.record[k];
         }
 
+        // Assign injects 
         if (this.injects) {
-            if (app.injects) Object.assign(app.injects, this.injects);
+            if (app.injects)
+                for (k in this.injects)
+                    app.injects[k] = this.injects[k];
 
-            else for (const key in this.injects)
-                app.inject(key, this.injects[key]);
+            else for (k in this.injects)
+                app.inject(k, this.injects[k]);
         }
 
+        // Assign storage
         if (this.storage) {
-            if (app.storage) Object.assign(app.storage, this.storage);
+            if (app.storage)
+                for (k in this.storage)
+                    app.storage[k] = this.storage[k];
 
-            else for (const key in this.storage)
-                app.store(key, this.storage[key]);
+            else for (k in this.storage)
+                app.store(k, this.storage[k]);
         }
     }
 
@@ -261,15 +256,25 @@ export class Router<I extends Dict<any> = Dict<any>> {
     }
 
     /**
+     * All resolving plugin
+     */
+    readonly plugins: Promise<any>[];
+
+    /**
      * Add a plugin
      * @param plugin 
      */
-    plug(...plugins: RouterPlugin<I>[]) {
-        for (const plugin of plugins) {
-            if (typeof plugin === 'object') plugin.plugin(this);
-            else plugin(this);
-        }
-        return this;
+    plug<R>(plugin: Plugin<I, R> | {
+        plugin: Plugin<I, R>
+    }) {
+        const res = typeof plugin === 'object'
+            ? plugin.plugin(this)
+            : plugin(this);
+
+        // Add to queue if not resolved
+        if (res instanceof Promise) this.plugins.push(res);
+
+        return this as unknown as Router<I & R>;
     }
 
     callArgs: string = requestObjectName;
@@ -297,9 +302,11 @@ export class Router<I extends Dict<any> = Dict<any>> {
         if (Object.keys(this.record).length === 0 || this.router) return;
         this.router = new Radx;
 
-        for (const path in this.record) {
-            const store = this.router.add(path);
-            for (const method in this.record[path])
+        let store: any, path: string, method: string;
+        for (path in this.record) {
+            store = this.router.add(path);
+
+            for (method in this.record[path])
                 store[method] = this.record[path][method];
         }
     }
@@ -337,15 +344,19 @@ export class Router<I extends Dict<any> = Dict<any>> {
         }
 
         if (this.webSocketHandlers) {
-            for (let i = 0; i < this.webSocketHandlers.length; ++i) {
+            let i = 0;
+            while (i < this.webSocketHandlers.length) {
                 res.literals.push(wsPrefix + i);
                 res.handlers.push(this.webSocketHandlers[i]);
+
+                ++i;
             }
         }
 
         // People pls don't try to use this
         if (this.injects) {
-            for (const key in this.injects) {
+            let key: string;
+            for (key in this.injects) {
                 res.literals.push(key);
                 res.handlers.push(this.injects[key]);
             }
@@ -357,7 +368,7 @@ export class Router<I extends Dict<any> = Dict<any>> {
 
             // @ts-ignore Inject headers
             if (this.fn404 === false)
-                res.handlers.push({ status: 404 });
+                res.handlers.push(notFoundError);
             else if (this.fn404)
                 res.handlers.push(this.fn404);
         }
@@ -379,17 +390,9 @@ export class Router<I extends Dict<any> = Dict<any>> {
         if (globalThis.Bun) globalThis.Bun.gc(true);
         return buildFetch(this.meta);
     };
-
-    /**
-     * Start accepting connections
-     * This attach the server to the globalThis object as well
-     */
-    ls() {
-        globalThis.server = Bun.serve(this);
-    }
 }
 
-const serverError = { status: 500 };
+const serverError = { status: 500 }, notFoundError = { status: 404 };
 const default505 = () => new Response(null, serverError);
 
 export function macro<T extends string>(fn: Handler<T> | string): Handler<any> {

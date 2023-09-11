@@ -36,6 +36,7 @@ export default function composeRouter(
         __callArgs
     }, methodsLiterals = [], fnHandlers = []; // Save handlers of methods
 
+    // Fn 400 modify the catch body
     if (fn400) {
         handlersRec[invalidBodyHandler] = fn400;
         handlersRec.__catchBody = hasManyArgs(fn400)
@@ -47,9 +48,14 @@ export default function composeRouter(
         handlersRec.__catchBody = `.catch(${invalidBodyHandler})`;
     }
 
-    const composedBody = composeNode(router.root, false, handlersRec, startIndex);
+    if (startIndex === 0) throw new Error('WTF');
+    const composedBody = composeNode(
+        router.root, false, handlersRec,
+        startIndex, false, false
+    );
 
-    for (const itemName in handlersRec) {
+    let itemName: string;
+    for (itemName in handlersRec) {
         if (itemName.startsWith('__')) continue;
         methodsLiterals.push(itemName);
         fnHandlers.push(handlersRec[itemName]);
@@ -78,9 +84,9 @@ function composeNode(
     node: Node<any>,
     isNormalInert: boolean,
     handlers: HandlerDetails,
-    fullPartPrevLen: number | string = 0,
-    hasParams: boolean = false,
-    backupParamIndexExists: boolean = false,
+    fullPartPrevLen: number | string,
+    hasParams: boolean,
+    backupParamIndexExists: boolean,
 ) {
     // Only fix inert
     if (isNormalInert && !('fixed' in node)) {
@@ -89,20 +95,16 @@ function composeNode(
     }
 
     const currentPathLen = plus(fullPartPrevLen, node.part.length);
-    let str = '', queue = '';
+    let str = '', queue = '',
+        // For efficient storing
+        iter: any, res: any;
 
-    if (node.part.length === 1) {
+    if (node.part.length === 1)
         str = `if(${handlers.__pathStr}.charCodeAt(${fullPartPrevLen})===${node.part.charCodeAt(0)}){`;
-    } else if (node.part.length !== 0) {
-        str += 'if(' + (fullPartPrevLen === 0
-            ? (node.part.length === 1
-                ? `${handlers.__pathStr}.charCodeAt(0)===${node.part.charCodeAt(0)}`
-                : `${handlers.__pathStr}.path.startsWith('${node.part}')`
-            )
-            : (node.part.length === 1
-                ? `${handlers.__pathStr}.charCodeAt(${fullPartPrevLen})===${node.part.charCodeAt(0)}`
-                : `${handlers.__pathStr}.substring(${fullPartPrevLen},${currentPathLen})==='${node.part}'`
-            )
+    else if (node.part.length !== 0) {
+        str += 'if(' + (node.part.length === 1
+            ? `${handlers.__pathStr}.charCodeAt(${fullPartPrevLen})===${node.part.charCodeAt(0)}`
+            : `${handlers.__pathStr}.substring(${fullPartPrevLen},${currentPathLen})==='${node.part}'`
         ) + '){';
     }
 
@@ -110,90 +112,106 @@ function composeNode(
     if (node.store !== null) {
         // Resolve guard
         if (node.store.GUARD) {
-            const res = guardCheck(handlers, node.store);
+            res = guardCheck(handlers, node.store);
             // Add to queue the needed string 
             queue += res[1];
             // Add to str the function body
             str += res[0];
         }
 
-        // @ts-ignore Check if any other handler is provided other than GUARD and REJECT
-        if (Object.keys(node.store).length - !!node.store.GUARD - !!node.store.REJECT > 0)
+        // Check if any other handler is provided other than GUARD and REJECT
+        res = 0;
+        for (iter in node.store)
+            switch (iter as string) {
+                case 'GUARD':
+                case 'REJECT':
+                    continue;
+
+                default: ++res; break;
+            }
+
+        if (res != 0)
             str += `if(${handlers.__pathLen}===${currentPathLen}){${getStoreCall(node.store, handlers)}}`;
     }
 
     if (node.inert !== null) {
-        const keys = Array.from(node.inert.keys());
-        if (keys.length === 1)
-            str += `if(${handlers.__pathStr}.charCodeAt(${currentPathLen})===${keys[0]}){${composeNode(
-                node.inert.get(keys[0]), true,
+        // The iterable instance
+        res = node.inert.keys();
+        // Iterator for keys
+        iter = res.next();
+
+        if (iter.done)
+            str += `if(${handlers.__pathStr}.charCodeAt(${currentPathLen})===${iter.value}){${composeNode(
+                node.inert.get(iter.value), true,
                 handlers, plus(currentPathLen, 1),
                 hasParams, backupParamIndexExists
             )}}`;
         else {
             str += `switch(${handlers.__pathStr}.charCodeAt(${currentPathLen})){`
-            for (const key of keys)
-                str += `case ${key}:${composeNode(
-                    node.inert.get(key), true,
+
+            // Optimization: Skip checking if first done
+            do {
+                str += `case ${iter.value}:${composeNode(
+                    node.inert.get(iter.value), true,
                     handlers, plus(currentPathLen, 1),
                     hasParams, backupParamIndexExists
-                )}${handlers.__defaultReturn};`
+                )}${handlers.__defaultReturn};`;
+
+                iter = res.next();
+            } while (!iter.done);
+
             str += '}';
         }
     }
 
     if (node.params !== null) {
-        const tDec = `${prevParamIndex}=${currentPathLen}`,
-            pathLenIsNum = typeof currentPathLen === 'number',
-            indexFrom = pathLenIsNum ? currentPathLen : prevParamIndex,
-            nextSlash = `${handlers.__pathStr}.indexOf('/',${indexFrom})`,
-            eDec = `${currentParamIndex}=${nextSlash}`,
-            // If has no inert then no need to create a variable
-            hasInert = node.params.inert !== null;
+        // Whether path length is a number
+        res = typeof currentPathLen === 'number';
 
-        if (!pathLenIsNum) str += `${backupParamIndexExists ? '' : 'let '}${tDec};`;
-        if (hasInert) str += (hasParams ? '' : 'let ') + eDec + `;`;
+        const indexFrom = res ? currentPathLen : prevParamIndex,
+            nextSlash = `${handlers.__pathStr}.indexOf('/',${indexFrom})`;
 
-        const hasStore = node.params.store !== null;
+        if (!res)
+            str += `${backupParamIndexExists ? '' : 'let '}${prevParamIndex}=${currentPathLen};`;
+
+        if (node.params.inert !== null)
+            str += `${hasParams ? '' : 'let '}${currentParamIndex}=${nextSlash};`;
 
         // End index here
-        if (hasStore) {
-            const pathSubstr = `${handlers.__pathStr}${currentPathLen === 0 ? (
-                handlers.__parsePath ? '' : `.substring(0,${requestObjectName}.query)`
-            ) : `.substring(${indexFrom}${handlers.__parsePath ? '' : `,${requestObjectName}.query`})`}`;
+        if (node.params.store !== null) {
+            // Path substring
+            iter = `${handlers.__pathStr}.substring(${indexFrom}${handlers.__parsePath ? '' : `,${requestObjectName}.query)`}`;
 
-            str += `if(${hasInert ? currentParamIndex : nextSlash}===-1){${requestObjectName}.params${hasParams
-                ? `.${node.params.paramName}=${pathSubstr}`
-                : `={${node.params.paramName}:${pathSubstr}}`
+            str += `if(${node.params.inert !== null ? currentParamIndex : nextSlash}===-1){${requestObjectName}.params${hasParams
+                ? `.${node.params.paramName}=${iter}`
+                : `={${node.params.paramName}:${iter}}`
                 };${getStoreCall(node.params.store, handlers)}}`;
         }
 
-        const pathSubstr = `${handlers.__pathStr}.substring(${indexFrom},${currentParamIndex})`,
-            addParams = requestObjectName + '.params' + (hasParams
-                ? `.${node.params.paramName}=${pathSubstr}`
-                : `={${node.params.paramName}:${pathSubstr}}`
+        if (node.params.inert !== null) {
+            // Path substring
+            iter = `${handlers.__pathStr}.substring(${indexFrom},${currentParamIndex})`;
+
+            const addParams = requestObjectName + '.params' + (hasParams
+                ? `.${node.params.paramName}=${iter}`
+                : `={${node.params.paramName}:${iter}}`
             );
 
-        if (hasInert) {
-            const newPathLen = typeof currentPathLen === 'number'
-                || backupParamIndexExists
-                // For no base specified
-                || currentPathLen.startsWith(urlStartIndex) ? plus(currentParamIndex, 1) : plus(currentPathLen, 1);
-
-            const composeRes = composeNode(
+            str += (node.params.store !== null
+                ? addParams : `if(${currentParamIndex}===-1)${handlers.__defaultReturn};${addParams}`
+            ) + ';' + composeNode(
                 node.params.inert, false, handlers,
-                newPathLen, true, !pathLenIsNum
+                // Check whether current path length includes the query index
+                res || backupParamIndexExists
+                    || (currentPathLen as string).startsWith(urlStartIndex)
+                    ? plus(currentParamIndex, 1) : plus(currentPathLen, 1),
+                true, !res
             );
-
-            str += hasStore
-                ? addParams + ';' + composeRes
-                : `if(${currentParamIndex}===-1)${handlers.__defaultReturn};${addParams};${composeRes}`;
         }
     }
 
     if (node.wildcardStore !== null) {
-        const pathSubstr = `${handlers.__pathStr}${currentPathLen === 0 && handlers.__parsePath
-            ? '' : `.substring(${currentPathLen})`}`;
+        const pathSubstr = `${handlers.__pathStr}.substring(${currentPathLen})`;
 
         str += requestObjectName + '.' + (hasParams
             ? `params['*']=${pathSubstr}`
@@ -207,11 +225,6 @@ function composeNode(
     return str + queue;
 }
 
-function isAsync(fn: any) {
-    if (typeof fn === 'function') return fn.constructor.name === 'AsyncFunction';
-    throw new Error('Guard should be a function, instead recieved: ' + fn);
-}
-
 /**
  * Choose the best check for a method group
  */
@@ -219,7 +232,7 @@ export function methodSplit(fn: any, handlers: HandlerDetails) {
     let method: string, hasP = false;
     const methods = [];
 
-    for (method in fn) {
+    for (method in fn)
         switch (method) {
             case 'ALL':
             case 'GUARD':
@@ -233,11 +246,24 @@ export function methodSplit(fn: any, handlers: HandlerDetails) {
 
             default:
                 methods.push(method);
-        }
-    }
+                break;
+        };
 
-    if (methods.length === 1)
-        return `if(${checkMethodExpr(methods[0])})${storeCheck(fn[methods[0]], handlers)}`;
+    if (methods.length === 1) {
+        let expr: string = requestMethod + '.';
+        switch (methods[0]) {
+            case 'GET': expr += 'charCodeAt(0)===71'; break;
+            case 'POST': expr += 'charCodeAt(2)===83'; break;
+            case 'PUT': expr += 'charCodeAt(0)===80'; break;
+            case 'DELETE': expr += 'length===6'; break;
+            case 'PATCH': expr += 'charCodeAt(1)===65'; break;
+            case 'CONNECT': expr += 'charCodeAt(2)===78'; break;
+            case 'OPTIONS': expr += 'charCodeAt(0)===79'; break;
+            case 'TRACE': expr += 'charCodeAt(0)===84'; break;
+        }
+
+        return `if(${expr})${storeCheck(fn[methods[0]], handlers)}`;
+    }
 
     let str = `switch(${requestMethod}`;
     if (hasP) {
@@ -294,7 +320,6 @@ export function storeCheck(fn: any, handlers: HandlerDetails) {
     } else str += methodCall;
 
     ++handlers.__index;
-
     return str;
 }
 
@@ -309,33 +334,15 @@ function guardCheck(handlers: HandlerDetails, store: any) {
         returnStatement = `return ${rejectPrefix}${handlers.__rejectIndex}(${handlers.__callArgs})`;
         ++handlers.__rejectIndex;
     }
+    handlers[handlerPrefix + handlers.__index] = store.GUARD;
 
-    const guardFn = store.GUARD;
-    handlers[handlerPrefix + handlers.__index] = guardFn;
-
-    if (isAsync(guardFn)) {
+    if (store.GUARD.constructor.name === 'AsyncFunction') {
         str += `return ${handlerPrefix}${handlers.__index}(${handlers.__callArgs}).then(_=>{if(_===null)${returnStatement};`;
         queue = '});';
     } else str += `if(${handlerPrefix}${handlers.__index}(${handlers.__callArgs})===null)${returnStatement};`;
 
     ++handlers.__index;
     return [str, queue];
-}
-
-/**
- * Return the best check for one method
- */
-function checkMethodExpr(method: string) {
-    switch (method) {
-        case 'GET': return requestMethod + '.charCodeAt(0)===' + 'G'.charCodeAt(0)
-        case 'POST': return requestMethod + '.charCodeAt(2)===' + 'S'.charCodeAt(0)
-        case 'PUT': return requestMethod + '.charCodeAt(0)===' + 'P'.charCodeAt(0)
-        case 'DELETE': return requestMethod + '.length===6'
-        case 'PATCH': return requestMethod + '.charCodeAt(1)===' + 'A'.charCodeAt(0)
-        case 'CONNECT': return requestMethod + '.charCodeAt(2)===' + 'N'.charCodeAt(0)
-        case 'OPTIONS': return requestMethod + '.charCodeAt(0)===' + 'O'.charCodeAt(0)
-        case 'TRACE': return requestMethod + '.charCodeAt(0)===' + 'T'.charCodeAt(0)
-    }
 }
 
 /**
@@ -356,13 +363,13 @@ function getMacroStr(handler: any) {
     macro = macro.substring(macro.indexOf(')') + 1).trimStart();
 
     // If it is an arrow function
-    if (macro[0] !== '{') {
+    if (macro.charCodeAt(0) !== 123) {
         // Remove arrow and trailing space 
         macro = macro.substring(2).trimStart();
 
         // If direct return
-        if (macro[0] !== '{') {
-            if (macro.at(-1) !== ';') macro += ';';
+        if (macro.charCodeAt(0) !== 123) {
+            if (macro.charCodeAt(macro.length - 1) !== 59) macro += ';';
             macro = 'return ' + macro;
         }
     }
