@@ -5,7 +5,7 @@ import composeRouter from './router/compose';
 import { convert, methodsLowerCase as methods } from './constants';
 import {
     requestObjectName, storeObjectName,
-    urlStartIndex, wsPrefix, requestURL, requestQueryIndex,
+    urlStartIndex, requestURL, requestQueryIndex,
     serverErrorHeader
 } from './router/constants';
 
