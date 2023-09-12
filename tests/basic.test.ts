@@ -25,7 +25,7 @@ const app = new Router()
     .use(400, e => new Response(String(e), invalidBody));
 
 console.time('Build fetch');
-const tester = mock(app, { logLevel: 1 });
+const tester = mock(app, { logLevel: 2 });
 
 // Report process memory usage and build time
 console.log(process.memoryUsage());

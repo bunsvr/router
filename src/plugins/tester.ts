@@ -24,7 +24,7 @@ export interface MockOptions {
      * Represent the log level 
      * `0`: No logging. This is the default value
      * `1`: Log only path 
-     * `2`: Log the result returned and path 
+     * `2`: Log the fetch metadata and path 
      * `3`: Log the result returned, the path and the app fetch metadata
      */
     logLevel?: 0 | 1 | 2 | 3;
@@ -50,7 +50,7 @@ export function mock(app: Router, opts: MockOptions = {}) {
         else delete app.base;
     } else app.uriLen = oldURILen;
 
-    if (logLvl >= 3) {
+    if (logLvl >= 2) {
         console.info('Parameters name:', meta.params);
         console.info('Parameters value:', meta.values);
         console.info('Fetch function:', meta.body);
@@ -84,7 +84,7 @@ export function mock(app: Router, opts: MockOptions = {}) {
 
             if (res instanceof Promise) res = await res;
             if (res instanceof Response) {
-                if (logLvl >= 2) console.info('Returned', res);
+                if (logLvl >= 3) console.info('Returned', res);
                 return res;
             }
 

@@ -3,7 +3,11 @@ import { BodyParser, FetchMeta, Handler, WSContext, ConcatPath, ServeOptions, Bo
 import Radx from './router';
 import composeRouter from './router/compose';
 import { convert, methodsLowerCase as methods } from './constants';
-import { nfHandler, requestObjectName, storeObjectName, urlStartIndex, wsPrefix } from './router/constants';
+import {
+    requestObjectName, storeObjectName,
+    urlStartIndex, wsPrefix, requestURL, requestQueryIndex,
+    serverErrorHeader
+} from './router/constants';
 
 type HttpMethod = 'get' | 'post' | 'put' | 'delete' | 'connect' | 'options' | 'trace' | 'patch' | 'all' | 'guard' | 'reject';
 export type RouterMethods<I extends Dict<any>, R extends string> = {
@@ -82,16 +86,13 @@ export class Router<I extends Dict<any> = Dict<any>> {
     }
 
     // Handle websocket
-    private webSocketHandlers: WebSocketHandler[];
+    private webSocketHandlers: WebSocketHandler[] = [];
     /**
      * Handling WebSocket connections. Only works in Bun 
      * @param path 
      * @param handler 
      */
     ws<D extends Dict<any> = {}, T extends string = string>(path: T, handler: WebSocketHandler<WSContext<T, I> & D>) {
-        if (!this.webSocketHandlers)
-            this.webSocketHandlers = [];
-
         // @ts-ignore Should use macros instead
         this.get(path, this.webSocketHandlers.length);
         this.webSocketHandlers.push(handler);
@@ -299,7 +300,7 @@ export class Router<I extends Dict<any> = Dict<any>> {
     }
 
     private assignRouter() {
-        if (Object.keys(this.record).length === 0 || this.router) return;
+        if (Object.keys(this.record).length === 0) return;
         this.router = new Radx;
 
         let store: any, path: string, method: string;
@@ -317,8 +318,12 @@ export class Router<I extends Dict<any> = Dict<any>> {
      * This method is intended for advanced usage.
      */
     get meta(): FetchMeta {
+        if (Object.keys(this.record).length === 0)
+            throw new Error('Please register a route first!');
+
         this.assignRouter();
 
+        // Assign websocket
         if (this.webSocketHandlers) {
             this.websocket ||= { message: createWSHandler('message') };
             this.websocket.open ||= createWSHandler('open');
@@ -326,58 +331,28 @@ export class Router<I extends Dict<any> = Dict<any>> {
             this.websocket.close ||= createWSHandler('close');
         }
 
-        if (!this.router) throw new Error('Please register a route first!');
-        // @ts-ignore
-        const defaultReturn = this.fn404 === false
-            ? `return new Response(null,${nfHandler})` : (
-                this.fn404 ? `return ${nfHandler}(${this.callArgs})` : 'return'
-            );
-
         const res = composeRouter(
-            this.router, this.callArgs, defaultReturn,
-            this.base ? this.base.length + 1 : urlStartIndex, this.fn400
+            this.router, this.callArgs, this.webSocketHandlers,
+            this.base ? this.base.length + 1 : urlStartIndex,
+            this.fn400, this.fn404
         );
 
-        if (this.storage) {
-            res.literals.push(storeObjectName);
-            res.handlers.push(this.storage);
-        }
-
-        if (this.webSocketHandlers) {
-            let i = 0;
-            while (i < this.webSocketHandlers.length) {
-                res.literals.push(wsPrefix + i);
-                res.handlers.push(this.webSocketHandlers[i]);
-
-                ++i;
-            }
-        }
+        if (this.storage)
+            res.store[storeObjectName] = this.storage;
 
         // People pls don't try to use this
         if (this.injects) {
-            let key: string;
-            for (key in this.injects) {
-                res.literals.push(key);
-                res.handlers.push(this.injects[key]);
-            }
-        }
+            let iter: string;
 
-        // @ts-ignore Inject headers
-        if (this.fn404 || this.fn404 === false) {
-            res.literals.push(nfHandler);
-
-            // @ts-ignore Inject headers
-            if (this.fn404 === false)
-                res.handlers.push(notFoundError);
-            else if (this.fn404)
-                res.handlers.push(this.fn404);
+            for (iter in this.injects)
+                res.store[iter] = this.injects[iter];
         }
 
         res.fn = getPathParser(this) + res.fn;
         return {
-            params: res.literals,
-            body: `return function(${requestObjectName}){${res.fn}${defaultReturn === 'return' ? '' : defaultReturn}}`,
-            values: res.handlers
+            params: Object.keys(res.store),
+            body: `return function(${requestObjectName}){${res.fn}}`,
+            values: Object.values(res.store)
         };
     }
 
@@ -392,8 +367,7 @@ export class Router<I extends Dict<any> = Dict<any>> {
     };
 }
 
-const serverError = { status: 500 }, notFoundError = { status: 404 };
-const default505 = () => new Response(null, serverError);
+const default505 = () => new Response(null, serverErrorHeader);
 
 export function macro<T extends string>(fn: Handler<T> | string): Handler<any> {
     if (typeof fn === 'string') return macro(Function(`return()=>new Response('${fn}')`)());
@@ -412,14 +386,11 @@ function createWSHandler(name: string) {
 }
 
 function getPathParser<T>(app: Router<T>) {
-    const hostExists = !!app.base,
-        exactHostLen = hostExists ? app.base.length + 1 : urlStartIndex,
-        uriStart = app.uriLen ?? 12,
-        url = requestObjectName + '.url',
-        query = requestObjectName + '.query',
-        additionalPart = (hostExists ? '' : `${urlStartIndex}=${url}.indexOf('/',${uriStart})+1;`);
-
-    return additionalPart + `${query}=${url}.indexOf('?',${exactHostLen});if(${query}===-1)${query}=${url}.length;`;
+    return (typeof app.base === 'string'
+        ? '' : `${urlStartIndex}=${requestURL}.indexOf('/',${app.uriLen ?? 12})+1;`
+    ) + `${requestQueryIndex}=${requestURL}.indexOf('?',${typeof app.base === 'string'
+        ? app.base.length + 1 : urlStartIndex
+    });` + `if(${requestQueryIndex}===-1)${requestQueryIndex}=${requestURL}.length;`;
 }
 
 /**
@@ -431,3 +402,4 @@ export function buildFetch(meta: FetchMeta): (req: Request) => any {
 
 export default Router;
 export { Radx };
+export * from './types';

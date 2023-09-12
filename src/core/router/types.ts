@@ -1,8 +1,7 @@
 export interface ParamNode<T> {
     paramName: string
     store: T | null
-    inert: Node<T> | null,
-    fixed?: true
+    inert: Node<T> | null
 }
 
 export interface Node<T> {

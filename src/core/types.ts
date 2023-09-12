@@ -77,7 +77,6 @@ export interface Context<D extends BodyParser = 'none', P extends string = strin
      * This field only exists only if `base` is not specified
      */
     path: number;
-
     /**
      * Set your custom heading here for response.
      *
@@ -89,6 +88,16 @@ export interface Context<D extends BodyParser = 'none', P extends string = strin
      */
     server: Server;
 }
+
+/**
+ * Blob part
+ */
+export type BlobPart = string | Blob | BufferSource;
+
+/**
+ * A Response body 
+ */
+export type ResponseBody = ReadableStream<any> | BlobPart | BlobPart[] | FormData | URLSearchParams;
 
 /**
  * A route handler function

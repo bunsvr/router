@@ -1,26 +1,30 @@
 import { Node, ParamNode } from './types';
 
-const createNode = <T>(part: string, inert?: Node<T>[]): Node<T> => ({
-    part,
-    store: null,
-    inert:
-        inert !== undefined
-            ? new Map(inert.map((child) => [child.part.charCodeAt(0), child]))
-            : null,
-    params: null,
-    wildcardStore: null
-});
+function createNode<T>(part: string, inert?: Node<T>[]): Node<T> {
+    return {
+        part,
+        store: null,
+        inert: inert !== undefined ? new Map(inert.map(
+            (child) => [child.part.charCodeAt(0), child])
+        ) : null,
+        params: null,
+        wildcardStore: null
+    }
+}
 
-const cloneNode = <T>(node: Node<T>, part: string) => ({
-    ...node,
-    part
-});
+function cloneNode<T>(node: Node<T>, part: string): Node<T> {
+    return {
+        part,
+        store: node.store,
+        inert: node.inert,
+        params: node.params,
+        wildcardStore: node.wildcardStore
+    };
+};
 
-const createParamNode = <T>(paramName: string): ParamNode<T> => ({
-    paramName,
-    store: null,
-    inert: null
-});
+function createParamNode<T>(paramName: string): ParamNode<T> {
+    return { paramName, store: null, inert: null };
+};
 
 /**
  * The base data structure for Stric router
@@ -41,13 +45,12 @@ export class Radx<T = any> {
         else if (path[0] !== '/') path = `/${path}`;
 
         const isWildcard = path[path.length - 1] === '*';
-        if (isWildcard) {
+        if (isWildcard)
             // Slice off trailing '*'
             path = path.slice(0, -1);
-        }
 
-        const inertParts = path.split(Radx.regex.static);
-        const paramParts = path.match(Radx.regex.params) || [];
+        const inertParts = path.split(Radx.regex.static),
+            paramParts = path.match(Radx.regex.params) || [];
 
         if (inertParts[inertParts.length - 1] === '') inertParts.pop();
 
