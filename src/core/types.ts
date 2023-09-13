@@ -102,15 +102,14 @@ export type ResponseBody = ReadableStream<any> | BlobPart | BlobPart[] | FormDat
 /**
  * A route handler function
  */
-export interface Handler<T extends string = string, I extends Dict<any> = {}, B extends BodyParser = any> {
+export interface Handler<
+    T extends string = any,
+    I extends Dict<any> = any,
+    B extends BodyParser = any> extends RouteOptions {
     /**
      * @param request The current request
      */
     (ctx: Context<B, T>, store: Check<I>): any;
-    /**
-     * Detect whether this handler is a macro
-     */
-    isMacro?: boolean;
 }
 
 /**
@@ -198,4 +197,9 @@ export interface RouteOptions {
      * Whether to access `req.server`
      */
     server?: boolean;
+
+    /**
+     * Whether to use the handler as macro
+     */
+    macro?: boolean;
 }

@@ -1,4 +1,4 @@
-import type { WebSocketHandler, Serve } from 'bun';
+import type { WebSocketHandler } from 'bun';
 import { BodyParser, FetchMeta, Handler, WSContext, ConcatPath, ServeOptions, BodyHandler, ErrorHandler, RouteOptions } from './types';
 import Radx from './router';
 import composeRouter from './router/compose';
@@ -26,7 +26,7 @@ export type RouterMethods<I extends Dict<any>, R extends string> = {
  * Specific plugin for router
  */
 export interface Plugin<I extends Dict<any> = Dict<any>, R = any> {
-    (app: Router<I>): Router<I & R> | void | Promise<Router<I & R> | void>
+    (app: Router<I>): R | void | Promise<R | void>
 }
 
 export interface Router<I> extends ServeOptions, RouterMethods<I, '/'> { };
@@ -36,7 +36,7 @@ export interface Router<I> extends ServeOptions, RouterMethods<I, '/'> { };
  * 
  * Note: This will run *only* the first route found
  */
-export class Router<I extends Dict<any> = Dict<any>> {
+export class Router<I extends Dict<any> = {}> {
     /**
      * Internal dynamic path router 
      */
@@ -52,7 +52,7 @@ export class Router<I extends Dict<any> = Dict<any>> {
      *
      * If a `PORT` env is set, the port will be the value specified.
      */
-    constructor(opts: Partial<Serve> = {}) {
+    constructor(opts: Partial<ServeOptions> = {}) {
         Object.assign(this, opts);
 
         let method: string;
@@ -92,7 +92,7 @@ export class Router<I extends Dict<any> = Dict<any>> {
      * @param path 
      * @param handler 
      */
-    ws<D extends Dict<any> = {}, T extends string = string>(path: T, handler: WebSocketHandler<WSContext<T, I> & D>) {
+    ws<D extends Dict<any> = Dict<any>, T extends string = string>(path: T, handler: WebSocketHandler<WSContext<T, I> & D>) {
         // @ts-ignore Should use macros instead
         this.get(path, this.webSocketHandlers.length);
         this.webSocketHandlers.push(handler);
@@ -250,7 +250,7 @@ export class Router<I extends Dict<any> = Dict<any>> {
     }
 
     /**
-     * Mount another app to a path
+     * Mount another WinterCG compliant app to a path
      */
     mount(path: string, app: { fetch: (request: Request) => any }) {
         this.all(path, app.fetch);
@@ -259,23 +259,43 @@ export class Router<I extends Dict<any> = Dict<any>> {
     /**
      * All resolving plugin
      */
-    readonly plugins: Promise<any>[];
+    readonly plugins: Promise<any>[] = [];
 
     /**
-     * Add a plugin
+     * Add a plugin. Plugins should be registered first.
      * @param plugin 
      */
     plug<R>(plugin: Plugin<I, R> | {
         plugin: Plugin<I, R>
     }) {
+        // Ignore null and undefined plugins
+        if (!plugin) return;
+
         const res = typeof plugin === 'object'
             ? plugin.plugin(this)
             : plugin(this);
 
         // Add to queue if not resolved
-        if (res instanceof Promise) this.plugins.push(res);
+        if (res instanceof Promise) this.plugins.push(
+            res.then(a => parsePluginResult(a, this))
+        ); else parsePluginResult(res, this);
 
-        return this as unknown as Router<I & R>;
+        return this as unknown as (R extends Router<infer O>
+            ? Router<I & O>
+            : (R extends object
+                ? Router<I> & R
+                : Router<I>
+            )
+        );
+    }
+
+    /**
+     * Resolve all loading plugins.
+     * Call this before serving.
+     */
+    resolve() {
+        if (this.plugins.length !== 0)
+            return Promise.allSettled(this.plugins);
     }
 
     callArgs: string = requestObjectName;
@@ -284,7 +304,7 @@ export class Router<I extends Dict<any> = Dict<any>> {
      * @param name
      * @param value 
      */
-    store<K extends string, V>(name: K, value: V): Router<I & { [key in K]: V }> {
+    store<K extends string, V>(name: K, value: V): this & Router<I & { [key in K]: V }> {
         this.initStore();
         // @ts-ignore
         this.storage[name] = value;
@@ -362,17 +382,23 @@ export class Router<I extends Dict<any> = Dict<any>> {
      * @param server Current Bun server
      */
     get fetch() {
-        if (globalThis.Bun) globalThis.Bun.gc(true);
         return buildFetch(this.meta);
     };
+
+    /**
+     * Start an HTTP server at specified port and host.
+     */
+    boot() {
+        return Bun.serve(this);
+    }
 }
 
 const default505 = () => new Response(null, serverErrorHeader);
 
-export function macro<T extends string>(fn: Handler<T> | string): Handler<any> {
+export function macro<T extends string>(fn: Handler<T> | string): Handler {
     if (typeof fn === 'string') return macro(Function(`return()=>new Response('${fn}')`)());
 
-    fn.isMacro = true;
+    fn.macro = true;
     return fn;
 }
 
@@ -391,6 +417,21 @@ function getPathParser<T>(app: Router<T>) {
     ) + `${requestQueryIndex}=${requestURL}.indexOf('?',${typeof app.base === 'string'
         ? app.base.length + 1 : urlStartIndex
     });` + `if(${requestQueryIndex}===-1)${requestQueryIndex}=${requestURL}.length;`;
+}
+
+function parsePluginResult(res: any, router: Router<any>) {
+    if (res instanceof Router) return;
+
+    if (typeof res === 'object' && res !== null) {
+        let key: string;
+
+        for (key in res) {
+            // Ignore keys in default prototype 
+            if (key in Router.prototype) break;
+
+            router[key] = res[key];
+        }
+    }
 }
 
 /**

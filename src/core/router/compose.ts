@@ -1,5 +1,5 @@
 import Radx from ".";
-import { BodyParser } from "../types";
+import { Handler } from "../types";
 import {
     currentParamIndex, handlerPrefix, invalidBodyHandler, prevParamIndex, requestObjectPrefix,
     rejectPrefix, requestObjectName, storeObjectName, wsPrefix, urlStartIndex, requestParsedBody,
@@ -305,30 +305,30 @@ export function methodSplit(fn: any, handlers: HandlerDetails) {
 /**
  * Checking methods and run the handler
  */
-export function getStoreCall(fn: any, handlers: HandlerDetails) {
-    let str = methodSplit(fn, handlers);
-    if ('ALL' in fn) str += storeCheck(fn['ALL'], handlers);
+export function getStoreCall(store: any, handlers: HandlerDetails) {
+    let str = methodSplit(store, handlers);
+    if ('ALL' in store) str += storeCheck(store['ALL'], handlers);
     return str;
 }
 
 /**
  * Run the store
  */
-export function storeCheck(fn: any, handlers: HandlerDetails) {
+export function storeCheck(fn: Handler, handlers: HandlerDetails) {
     if (typeof fn === 'number') return getWSHandler(fn, handlers);
-    if (fn.isMacro && !fn.body) return getMacroStr(fn);
+    if (fn.macro) return getMacroStr(fn);
 
     handlers[handlerPrefix + handlers.__index] = fn;
 
-    let str = 'return ', methodCall = fn.isMacro
+    let str = 'return ', methodCall = fn.macro
         ? getMacroStr(fn)
         : `${handlerPrefix}${handlers.__index}(${handlers.__callArgs});`;
 
     if (fn.body && fn.body !== 'none') {
-        if (!fn.isMacro) methodCall = 'return ' + methodCall;
+        if (!fn.macro) methodCall = 'return ' + methodCall;
         str += requestObjectPrefix;
 
-        switch (fn.body as BodyParser) {
+        switch (fn.body) {
             case 'text': str += `text`; break;
             case 'json': str += `json`; break;
             case 'form': str += 'formData'; break;
@@ -387,7 +387,7 @@ function getWSHandler(fnIndex: number, handlers: HandlerDetails) {
 /**
  * Get the function body of a macro
  */
-function getMacroStr(handler: any) {
+function getMacroStr(handler: Handler) {
     let macro = handler.toString();
 
     // Skip space to check for direct return 
