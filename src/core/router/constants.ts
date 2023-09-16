@@ -24,4 +24,8 @@ export const internalPrefix = '_',
     // Predefined response options
     notFoundHeader = { status: 404 },
     badReqHeader = { status: 400 },
-    serverErrorHeader = { status: 500 };
+    serverErrorHeader = { status: 500 },
+    // Predefined response function
+    notFoundHandler = () => new Response(null, notFoundHeader),
+    serverErrorHandler = () => new Response(null, serverErrorHeader),
+    badRequestHandler = () => new Response(null, badReqHeader);

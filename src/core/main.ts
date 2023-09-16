@@ -6,7 +6,8 @@ import { convert, methodsLowerCase as methods } from './constants';
 import {
     requestObjectName, storeObjectName,
     urlStartIndex, requestURL, requestQueryIndex,
-    serverErrorHeader
+    serverErrorHeader,
+    serverErrorHandler
 } from './router/constants';
 
 type HttpMethod = 'get' | 'post' | 'put' | 'delete' | 'connect' | 'options' | 'trace' | 'patch' | 'all' | 'guard' | 'reject';
@@ -189,7 +190,7 @@ export class Router<I extends Dict<any> = {}> {
                 break;
             case 500:
             case 'error':
-                this.error = args[1] || default505;
+                this.error = args[1] || serverErrorHandler;
                 break;
             case 'store':
                 this.initStore();
@@ -218,11 +219,9 @@ export class Router<I extends Dict<any> = {}> {
      * Create the store if not exists
      */
     private initStore() {
-        if (!this.storage) {
+        if (!this.storage)
             // @ts-ignore
             this.storage = {};
-            this.callArgs += ',' + storeObjectName;
-        }
     }
 
     /**
@@ -310,7 +309,6 @@ export class Router<I extends Dict<any> = {}> {
             return Promise.allSettled(this.plugins);
     }
 
-    callArgs: string = requestObjectName;
     /**
      * Inject a property
      * @param name
@@ -364,7 +362,7 @@ export class Router<I extends Dict<any> = {}> {
         }
 
         const res = composeRouter(
-            this.router, this.callArgs, this.webSocketHandlers,
+            this.router, !!this.storage, this.webSocketHandlers,
             this.base ? this.base.length + 1 : urlStartIndex,
             this.fn400, this.fn404
         );
@@ -404,10 +402,6 @@ export class Router<I extends Dict<any> = {}> {
         return Bun.serve(this);
     }
 }
-
-// TODO: Wrap response (something like 'guard')
-
-const default505 = () => new Response(null, serverErrorHeader);
 
 export function macro<T extends string>(fn: Handler<T> | string): Handler {
     if (typeof fn === 'string')

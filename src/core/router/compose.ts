@@ -3,7 +3,7 @@ import { Handler, Wrapper } from "../types";
 import {
     currentParamIndex, handlerPrefix, invalidBodyHandler, prevParamIndex, requestObjectPrefix,
     rejectPrefix, requestObjectName, storeObjectName, wsPrefix, urlStartIndex, requestParsedBody,
-    requestMethod, requestURL, requestQueryIndex, requestParams, nfHandler, notFoundHeader, guardPrefix, wrapperPrefixes
+    requestMethod, requestURL, requestQueryIndex, requestParams, nfHandler, notFoundHeader, guardPrefix, wrapperPrefixes, badRequestHandler
 } from "./constants";
 import { Node } from "./types";
 
@@ -14,7 +14,7 @@ interface HandlerDetails extends Dict<any> {
     __pathLen: string | null,
     __rejectIndex: number,
     __catchBody: string,
-    __callArgs: string,
+    __hasStore: boolean,
     __guardIndex: number,
     __wrapperIndex: number,
     __ws: any[]
@@ -22,16 +22,30 @@ interface HandlerDetails extends Dict<any> {
 
 type FunctionStore = Dict<Handler<any>>;
 
-function hasManyArgs(fn: Function) {
+function extractArgs(fn: Function) {
     let str = fn.toString(),
         st = str.indexOf('('),
         ed = str.indexOf(')', st + 1);
-    str = str.substring(st, ed);
-    return str.includes(',');
+
+    return str.substring(st, ed);
+}
+
+function resolveArgs(hasStore: boolean) {
+    return hasStore ? requestObjectName + ',' + storeObjectName : requestObjectName;
+}
+
+function checkArgs(str: string | Function, hasStore: boolean) {
+    if (typeof str !== 'string') str = extractArgs(str);
+
+    if (str.length === 0) return '';
+    // Multiple args
+    if (str.includes(',')) return resolveArgs(hasStore);
+
+    return requestObjectName;
 }
 
 export default function composeRouter(
-    router: Radx, __callArgs: string, __ws: any[],
+    router: Radx, __hasStore: boolean, __ws: any[],
     startIndex: number | string, fn400: any, fn404: any
 ) {
     if (startIndex === 0) throw new Error('WTF');
@@ -42,17 +56,22 @@ export default function composeRouter(
         __pathStr: requestURL, __wrapperIndex: 0,
         __pathLen: requestQueryIndex,
         __rejectIndex: 0, __catchBody: '',
-        __callArgs, __ws, __guardIndex: 0
+        __hasStore, __ws, __guardIndex: 0
     };
 
     // Fn 400 modify the catch body
     if (fn400) {
+        const args = extractArgs(fn400);
+
+        // Assign the catch body
         handlersRec[invalidBodyHandler] = fn400;
-        handlersRec.__catchBody = hasManyArgs(fn400)
-            ? `.catch(_=>${invalidBodyHandler}(_,${__callArgs}))`
+        handlersRec.__catchBody = args.includes(',')
+            ? `.catch(_=>${invalidBodyHandler}(_,${resolveArgs(__hasStore)}))`
             : `.catch(${invalidBodyHandler})`;
-    } else if (fn400 === false) {
-        handlersRec[invalidBodyHandler] = () => new Response(null, notFoundHeader);
+    }
+    // Special 400
+    else if (fn400 === false) {
+        handlersRec[invalidBodyHandler] = badRequestHandler;
         handlersRec.__catchBody = `.catch(${invalidBodyHandler})`;
     }
 
@@ -65,7 +84,7 @@ export default function composeRouter(
             handlersRec.__defaultReturn += ` new Response(null,${nfHandler})`;
             handlersRec[nfHandler] = notFoundHeader;
         } else {
-            handlersRec.__defaultReturn += ` ${nfHandler}(${__callArgs})`;
+            handlersRec.__defaultReturn += ` ${nfHandler}(${checkArgs(fn404, __hasStore)})`;
             handlersRec[nfHandler] = fn404;
         }
 
@@ -335,7 +354,7 @@ export function storeCheck(fn: Handler, handlers: HandlerDetails, wrapper: Wrapp
 
     let str = 'return ', methodCall = fn.macro
         ? getMacroStr(fn)
-        : `${handlerPrefix}${handlers.__index}(${handlers.__callArgs})`,
+        : `${handlerPrefix}${handlers.__index}(${checkArgs(fn, handlers.__hasStore)})`,
         additionalThen = '';
 
     if (wrapper) {
@@ -376,25 +395,27 @@ export function storeCheck(fn: Handler, handlers: HandlerDetails, wrapper: Wrapp
  */
 function guardCheck(handlers: HandlerDetails, store: FunctionStore) {
     let returnStatement = handlers.__defaultReturn,
-        str = '', queue = '', caller = '';
+        str = '', queue = '', caller = '', args: string;
 
     // Check if a reject does exists to customize handling
     if (store.REJECT) {
+        args = checkArgs(store.REJECT, handlers.__hasStore);
         caller = rejectPrefix + handlers.__rejectIndex;
 
         handlers[caller] = store.REJECT;
-        returnStatement = `return ${caller}(${handlers.__callArgs})`;
+        returnStatement = `return ${caller}(${args})`;
         ++handlers.__rejectIndex;
     }
 
     // Add guard
     caller = guardPrefix + handlers.__guardIndex;
     handlers[caller] = store.GUARD;
+    args = checkArgs(store.GUARD, handlers.__hasStore);
 
     if (store.GUARD.constructor.name === 'AsyncFunction') {
-        str += `return ${caller}(${handlers.__callArgs}).then(_=>{if(_===null)${returnStatement};`;
+        str += `return ${caller}(${args}).then(_=>{if(_===null)${returnStatement};`;
         queue = '});';
-    } else str += `if(${caller}(${handlers.__callArgs})===null)${returnStatement};`;
+    } else str += `if(${caller}(${args})===null)${returnStatement};`;
 
     ++handlers.__guardIndex;
     return [str, queue];
