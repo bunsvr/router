@@ -75,7 +75,9 @@ export class Router<I extends Dict<any> = {}> {
     }
 
     /**
-     * Add a response wrapper for subroutes of path
+     * Add a response wrapper for subroutes of path.
+     *
+     * Wrap will not wrap reject responses
      */
     wrap(path: string, handler: Wrapper = wrappers.default) {
         this.use('WRAP', path, handler);

@@ -207,4 +207,8 @@ export interface RouteOptions {
 // Behave like a post middleware
 export interface Wrapper {
     (response: any): any;
+
+    // Private props for modifying at compile time
+    callName?: string;
+    isAsync?: boolean;
 }

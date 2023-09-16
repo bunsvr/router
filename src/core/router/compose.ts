@@ -161,8 +161,15 @@ function composeNode(
             str += res[0];
         }
 
-        if (node.store.WRAP)
+        if (node.store.WRAP) {
             wrapper = node.store.WRAP;
+
+            wrapper.callName = wrapperPrefixes + handlers.__wrapperIndex;
+            handlers[wrapper.callName] = wrapper;
+            ++handlers.__wrapperIndex;
+
+            wrapper.isAsync ??= wrapper.constructor.name === 'AsyncFunction';
+        }
 
         // Check if any other handler is provided other than GUARD and REJECT
         countMethod:
@@ -350,26 +357,23 @@ export function storeCheck(fn: Handler, handlers: HandlerDetails, wrapper: Wrapp
     // Ignore wrappers for macros
     if (fn.macro) return getMacroStr(fn);
 
-    handlers[handlerPrefix + handlers.__index] = fn;
-
-    let str = 'return ', methodCall = fn.macro
-        ? getMacroStr(fn)
-        : `${handlerPrefix}${handlers.__index}(${checkArgs(fn, handlers.__hasStore)})`,
+    let str = 'return ',
+        methodName = handlerPrefix + handlers.__index,
+        methodCall = methodName + `(${checkArgs(fn, handlers.__hasStore)})`,
         additionalThen = '';
 
-    if (wrapper) {
-        // Get and assign the wrapper to scope
-        const wrapperName = wrapperPrefixes + handlers.__wrapperIndex;
-        handlers[wrapperName] = wrapper;
-        ++handlers.__wrapperIndex;
+    // Add to handlers
+    handlers[methodName] = fn;
 
-        if (wrapper.constructor.name === 'AsyncFunction')
-            additionalThen += `.then(${wrapperName})`;
-        else methodCall = `${wrapperName}(${methodCall})`;
+    // Set wrapper
+    if (wrapper) {
+        if (wrapper.isAsync)
+            additionalThen = `.then(${wrapper.callName})`;
+        else
+            methodCall = `${wrapper.callName}(${methodCall})`;
     }
 
     if (fn.body && fn.body !== 'none') {
-        if (!fn.macro) methodCall = 'return ' + methodCall;
         str += requestObjectPrefix;
 
         switch (fn.body) {
@@ -381,12 +385,12 @@ export function storeCheck(fn: Handler, handlers: HandlerDetails, wrapper: Wrapp
             default: throw new Error('Invalid body parser specified: ' + fn.body);
         }
 
-        str += `().then(_=>{${requestParsedBody}=_;${methodCall}})`
+        str += `().then(_=>{${requestParsedBody}=_;`
+            + `return ${methodCall}})`
             + additionalThen + handlers.__catchBody;
     } else str += methodCall + additionalThen;
 
     ++handlers.__index;
-
     return str + ';';
 }
 
