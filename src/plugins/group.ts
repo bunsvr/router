@@ -1,5 +1,5 @@
-import { Plugin, Router, RouterMethods } from "../core/main";
-import type { ConcatPath, Handler, WSContext } from "../core/types";
+import { Plugin, Router, RouterMethods, wrappers } from "../core/main";
+import type { ConcatPath, Handler, WSContext, Wrapper } from "../core/types";
 import { convert, methodsLowerCase as methods } from "../core/constants";
 import type { WebSocketHandler } from "bun";
 
@@ -47,6 +47,17 @@ export class Group<I extends Dict<any> = Dict<any>, R extends string = '/'> {
             this.record.push(args);
             return this;
         }
+    }
+
+    /**
+     * Wrap the response
+     */
+    wrap(path: string, handler: Wrapper = wrappers.default) {
+        if (this.root !== '/') path = this.root + path;
+        path = convert(path);
+
+        this.record.push(['WRAP', path, handler]);
+        return this;
     }
 
     /**

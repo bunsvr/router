@@ -75,13 +75,12 @@ export class Radx<T = any> {
                         `("${node.params.paramName}") in the same location`
                     );
 
-                const params = node.params;
-                if (params.inert === null) {
-                    node = params.inert = createNode(part);
+                if (node.params.inert === null) {
+                    node = node.params.inert = createNode(part);
                     continue;
                 };
 
-                node = params.inert;
+                node = node.params.inert;
             }
 
             for (let j = 0; ;) {

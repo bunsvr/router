@@ -1,5 +1,5 @@
 import type { WebSocketHandler } from 'bun';
-import { BodyParser, FetchMeta, Handler, WSContext, ConcatPath, ServeOptions, BodyHandler, ErrorHandler, RouteOptions } from './types';
+import { BodyParser, FetchMeta, Handler, WSContext, ConcatPath, ServeOptions, BodyHandler, ErrorHandler, RouteOptions, Wrapper, ResponseBody } from './types';
 import Radx from './router';
 import composeRouter from './router/compose';
 import { convert, methodsLowerCase as methods } from './constants';
@@ -30,6 +30,10 @@ export interface Plugin<I extends Dict<any> = Dict<any>, R = any> {
 }
 
 export interface Router<I> extends ServeOptions, RouterMethods<I, '/'> { };
+
+export const wrappers = {
+    default: (d: ResponseBody) => new Response(d)
+}
 
 /**
  * A Stric router
@@ -67,6 +71,14 @@ export class Router<I extends Dict<any> = {}> {
 
         // Automatically set port
         if (Bun.env.PORT) this.port = Number(Bun.env.PORT);
+    }
+
+    /**
+     * Add a response wrapper for subroutes of path
+     */
+    wrap(path: string, handler: Wrapper = wrappers.default) {
+        this.use('WRAP', path, handler);
+        return this;
     }
 
     /**
@@ -393,10 +405,13 @@ export class Router<I extends Dict<any> = {}> {
     }
 }
 
+// TODO: Wrap response (something like 'guard')
+
 const default505 = () => new Response(null, serverErrorHeader);
 
 export function macro<T extends string>(fn: Handler<T> | string): Handler {
-    if (typeof fn === 'string') return macro(Function(`return()=>new Response('${fn}')`)());
+    if (typeof fn === 'string')
+        return macro(Function(`return()=>new Response('${fn}')`)());
 
     fn.macro = true;
     return fn;

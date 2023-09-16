@@ -21,6 +21,10 @@ const app = new Router()
 
     .all('/json/*', req => new Response(req.params['*']))
 
+    .get('/str/1', () => 'Hello')
+    .get('/str/2', () => 'Hi')
+    .wrap('/str')
+
     .use(404)
     .use(400, e => new Response(String(e), invalidBody));
 
@@ -79,4 +83,12 @@ test('400', async () => {
     const res = await tester.code('/json', { method: 'POST' });
 
     expect(res).toBe(400);
+});
+
+test('Wrapper', async () => {
+    let res = await tester.text('/str/1');
+    expect(res).toBe('Hello');
+
+    res = await tester.text('/str/2');
+    expect(res).toBe('Hi');
 });

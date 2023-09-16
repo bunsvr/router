@@ -4,6 +4,7 @@ export const internalPrefix = '_',
     rejectPrefix = internalPrefix + 'r',
     guardPrefix = internalPrefix + 'g',
     wsPrefix = internalPrefix + 'w',
+    wrapperPrefixes = internalPrefix + 'd',
     // Special handlers and props
     invalidBodyHandler = internalPrefix + 'i',
     prevParamIndex = internalPrefix + 't',

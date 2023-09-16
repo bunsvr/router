@@ -203,3 +203,8 @@ export interface RouteOptions {
      */
     macro?: boolean;
 }
+
+// Behave like a post middleware
+export interface Wrapper {
+    (response: any): any;
+}
