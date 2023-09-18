@@ -23,10 +23,11 @@ const app = new Router()
 
     .get('/str/1', () => 'Hello')
     .get('/str/2', () => 'Hi')
+    .get('/str/3', (_, server) => server.port)
     .wrap('/str')
 
     .use(404)
-    .use(400, e => new Response(String(e), invalidBody));
+    .use(400, (e, c) => new Response(c.url + ': ' + e, invalidBody));
 
 console.time('Build fetch');
 const tester = mock(app, { logLevel: 2 });
@@ -80,9 +81,10 @@ test('404', async () => {
 });
 
 test('400', async () => {
-    const res = await tester.code('/json', { method: 'POST' });
+    const res = await tester.fetch('/json', { method: 'POST' });
 
-    expect(res).toBe(400);
+    expect(res.status).toBe(400);
+    console.log(await res.text());
 });
 
 test('Wrapper', async () => {
@@ -91,4 +93,7 @@ test('Wrapper', async () => {
 
     res = await tester.text('/str/2');
     expect(res).toBe('Hi');
+
+    res = await tester.text('/str/3');
+    expect(res).toBe("3000");
 });

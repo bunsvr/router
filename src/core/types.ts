@@ -29,9 +29,15 @@ type ParserType<B extends BodyParser> = B extends 'text' ? string : (
 /**
  * WebSocket data
  */
-export interface WSContext<P extends string = string, I extends Dict<any> = never> {
+export interface WSContext<P extends string = string> {
+    /**
+     * The current context
+     */
     ctx: Context<'none', P>;
-    store: Check<I>;
+    /**
+     * The current server
+     */
+    server: Server;
 }
 
 /**
@@ -80,13 +86,9 @@ export interface Context<D extends BodyParser = 'none', P extends string = strin
     /**
      * Set your custom heading here for response.
      *
-     * This should be used with `guard` to add custom headers.
+     * This should be used with `guard` and `wrap` to add custom headers.
      */
     head: ContextHeaders;
-    /**
-     * The current server. Only usable when `opts.server` is set to `true`.
-     */
-    server: Server;
 }
 
 /**
@@ -104,12 +106,11 @@ export type ResponseBody = ReadableStream<any> | BlobPart | BlobPart[] | FormDat
  */
 export interface Handler<
     T extends string = any,
-    I extends Dict<any> = any,
     B extends BodyParser = any> extends RouteOptions {
     /**
      * @param request The current request
      */
-    (ctx: Context<B, T>, store: Check<I>): any;
+    (ctx: Context<B, T>, server: Server): any;
 }
 
 /**
@@ -148,7 +149,8 @@ export interface FetchMeta {
 }
 
 import {
-    ServeOptions as BasicServeOptions, TLSServeOptions, TLSWebSocketServeOptions, WebSocketServeOptions
+    ServeOptions as BasicServeOptions, TLSServeOptions,
+    TLSWebSocketServeOptions, WebSocketServeOptions
 } from 'bun';
 
 interface AllOptions extends BasicServeOptions, TLSServeOptions, WebSocketServeOptions, TLSWebSocketServeOptions { }
@@ -194,11 +196,6 @@ export interface RouteOptions {
     body?: BodyParser;
 
     /**
-     * Whether to access `req.server`
-     */
-    server?: boolean;
-
-    /**
      * Whether to use the handler as macro
      */
     macro?: boolean;
@@ -210,5 +207,6 @@ export interface Wrapper {
 
     // Private props for modifying at compile time
     callName?: string;
-    isAsync?: boolean;
+    params?: string;
+    hasParams?: boolean;
 }

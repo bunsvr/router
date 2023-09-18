@@ -2,6 +2,7 @@ export const methods = ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'CONNECT', 'OPTI
 export const methodsLowerCase = methods.map(v => v.toLowerCase());
 
 export function convert(path: string) {
-    if (path.at(-1) === '/' && path.length > 1) path = path.slice(0, -1);
+    if (path.length < 2) return path;
+    if (path.at(-1) === '/') return path.substring(0, path.length - 1);
     return path;
 }

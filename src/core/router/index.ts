@@ -59,9 +59,9 @@ export class Radx<T = any> {
         if (!this.root) this.root = createNode<T>('');
         node = this.root;
 
-        let paramPartsIndex = 0;
+        let paramPartsIndex = 0, part: string;
         for (let i = 0; i < inertParts.length; ++i) {
-            let part = inertParts[i].substring(1);
+            part = inertParts[i].substring(1);
 
             if (i > 0) {
                 // Set param on the node
@@ -112,8 +112,8 @@ export class Radx<T = any> {
                 }
                 if (part[j] !== node.part[j]) {
                     // Split the node
-                    const existingChild = cloneNode(node, node.part.slice(j));
-                    const newChild = createNode<T>(part.slice(j));
+                    const existingChild = cloneNode(node, node.part.slice(j)),
+                        newChild = createNode<T>(part.slice(j));
 
                     Object.assign(
                         node,
@@ -131,8 +131,8 @@ export class Radx<T = any> {
 
         if (paramPartsIndex < paramParts.length) {
             // The final part is a parameter
-            const param = paramParts[paramPartsIndex];
-            const paramName = param.substring(1);
+            const param = paramParts[paramPartsIndex],
+                paramName = param.substring(1);
 
             if (node.params === null) node.params = createParamNode(paramName);
             else if (node.params.paramName !== paramName)

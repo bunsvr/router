@@ -2,7 +2,7 @@ import Radx from ".";
 import { Handler, Wrapper } from "../types";
 import {
     currentParamIndex, handlerPrefix, invalidBodyHandler, prevParamIndex, requestObjectPrefix,
-    rejectPrefix, requestObjectName, storeObjectName, wsPrefix, urlStartIndex, requestParsedBody,
+    rejectPrefix, requestObjectName, wsPrefix, urlStartIndex, requestParsedBody,
     requestMethod, requestURL, requestQueryIndex, requestParams, nfHandler, notFoundHeader, guardPrefix, wrapperPrefixes, badRequestHandler
 } from "./constants";
 import { Node } from "./types";
@@ -14,7 +14,6 @@ interface HandlerDetails extends Dict<any> {
     __pathLen: string | null,
     __rejectIndex: number,
     __catchBody: string,
-    __hasStore: boolean,
     __guardIndex: number,
     __wrapperIndex: number,
     __ws: any[]
@@ -30,22 +29,25 @@ function extractArgs(fn: Function) {
     return str.substring(st, ed);
 }
 
-function resolveArgs(hasStore: boolean) {
-    return hasStore ? requestObjectName + ',' + storeObjectName : requestObjectName;
-}
-
-function checkArgs(str: string | Function, hasStore: boolean) {
+function checkArgs(str: string | Function, skips: number) {
     if (typeof str !== 'string') str = extractArgs(str);
-
     if (str.length === 0) return '';
-    // Multiple args
-    if (str.includes(',')) return resolveArgs(hasStore);
 
-    return requestObjectName;
+    let i = str.indexOf(',');
+    while (skips !== 0) {
+        if (i === -1) return '';
+        i = str.indexOf(',', i + 2);
+
+        --skips;
+    }
+
+    return i === -1
+        ? requestObjectName
+        : requestObjectName + ',this';
 }
 
 export default function composeRouter(
-    router: Radx, __hasStore: boolean, __ws: any[],
+    router: Radx, __ws: any[],
     startIndex: number | string, fn400: any, fn404: any
 ) {
     if (startIndex === 0) throw new Error('WTF');
@@ -56,18 +58,18 @@ export default function composeRouter(
         __pathStr: requestURL, __wrapperIndex: 0,
         __pathLen: requestQueryIndex,
         __rejectIndex: 0, __catchBody: '',
-        __hasStore, __ws, __guardIndex: 0
+        __ws, __guardIndex: 0
     };
 
     // Fn 400 modify the catch body
     if (fn400) {
-        const args = extractArgs(fn400);
+        const args = checkArgs(fn400, 1);
 
         // Assign the catch body
         handlersRec[invalidBodyHandler] = fn400;
-        handlersRec.__catchBody = args.includes(',')
-            ? `.catch(_=>${invalidBodyHandler}(_,${resolveArgs(__hasStore)}))`
-            : `.catch(${invalidBodyHandler})`;
+        handlersRec.__catchBody = args === ''
+            ? `.catch(${invalidBodyHandler})`
+            : `.catch(function(_){return ${invalidBodyHandler}(_,${args})})`;
     }
     // Special 400
     else if (fn400 === false) {
@@ -84,7 +86,7 @@ export default function composeRouter(
             handlersRec.__defaultReturn += ` new Response(null,${nfHandler})`;
             handlersRec[nfHandler] = notFoundHeader;
         } else {
-            handlersRec.__defaultReturn += ` ${nfHandler}(${checkArgs(fn404, __hasStore)})`;
+            handlersRec.__defaultReturn += ` ${nfHandler}(${checkArgs(fn404, 0)})`;
             handlersRec[nfHandler] = fn404;
         }
 
@@ -168,7 +170,13 @@ function composeNode(
             handlers[wrapper.callName] = wrapper;
             ++handlers.__wrapperIndex;
 
-            wrapper.isAsync ??= wrapper.constructor.name === 'AsyncFunction';
+            if (!('params' in wrapper)) {
+                wrapper.params = checkArgs(wrapper, 1);
+                wrapper.hasParams = wrapper.params !== '';
+
+                if (wrapper.hasParams)
+                    wrapper.params = ',' + wrapper.params;
+            }
         }
 
         // Check if any other handler is provided other than GUARD and REJECT
@@ -359,19 +367,10 @@ export function storeCheck(fn: Handler, handlers: HandlerDetails, wrapper: Wrapp
 
     let str = 'return ',
         methodName = handlerPrefix + handlers.__index,
-        methodCall = methodName + `(${checkArgs(fn, handlers.__hasStore)})`,
-        additionalThen = '';
+        methodCall = methodName + `(${checkArgs(fn, 0)})`;
 
     // Add to handlers
     handlers[methodName] = fn;
-
-    // Set wrapper
-    if (wrapper) {
-        if (wrapper.isAsync)
-            additionalThen = `.then(${wrapper.callName})`;
-        else
-            methodCall = `${wrapper.callName}(${methodCall})`;
-    }
 
     if (fn.body && fn.body !== 'none') {
         str += requestObjectPrefix;
@@ -385,10 +384,20 @@ export function storeCheck(fn: Handler, handlers: HandlerDetails, wrapper: Wrapp
             default: throw new Error('Invalid body parser specified: ' + fn.body);
         }
 
-        str += `().then(_=>{${requestParsedBody}=_;`
-            + `return ${methodCall}})`
-            + additionalThen + handlers.__catchBody;
-    } else str += methodCall + additionalThen;
+        str += `().then(function(_){${requestParsedBody}=_;`
+            + `return ${methodCall}})`;
+
+        if (wrapper) str += wrapper.hasParams
+            ? `.then(function(_){return ${wrapper.callName}(_${wrapper.params})})`
+            : `.then(${wrapper.callName})`;
+
+        str += handlers.__catchBody;
+    } else {
+        if (wrapper)
+            methodCall = `${wrapper.callName}(${methodCall}${wrapper.params})`;
+
+        str += methodCall;
+    }
 
     ++handlers.__index;
     return str + ';';
@@ -403,7 +412,7 @@ function guardCheck(handlers: HandlerDetails, store: FunctionStore) {
 
     // Check if a reject does exists to customize handling
     if (store.REJECT) {
-        args = checkArgs(store.REJECT, handlers.__hasStore);
+        args = checkArgs(store.REJECT, 0);
         caller = rejectPrefix + handlers.__rejectIndex;
 
         handlers[caller] = store.REJECT;
@@ -414,10 +423,10 @@ function guardCheck(handlers: HandlerDetails, store: FunctionStore) {
     // Add guard
     caller = guardPrefix + handlers.__guardIndex;
     handlers[caller] = store.GUARD;
-    args = checkArgs(store.GUARD, handlers.__hasStore);
+    args = checkArgs(store.GUARD, 0);
 
     if (store.GUARD.constructor.name === 'AsyncFunction') {
-        str += `return ${caller}(${args}).then(_=>{if(_===null)${returnStatement};`;
+        str += `return ${caller}(${args}).then(function(_){if(_===null)${returnStatement};`;
         queue = '});';
     } else str += `if(${caller}(${args})===null)${returnStatement};`;
 
@@ -429,11 +438,9 @@ function guardCheck(handlers: HandlerDetails, store: FunctionStore) {
  * Return the literal for WS upgrade
  */
 function getWSHandler(fnIndex: number, handlers: HandlerDetails) {
-    handlers[wsPrefix + fnIndex] = handlers.__ws[fnIndex];
-
-    return `return this.upgrade(${requestObjectName},{data:{_:${wsPrefix}${fnIndex},ctx:${requestObjectName}${(
-        handlers.__defaultReturn.includes(storeObjectName) ? `,store:${storeObjectName}` : ''
-    )}}});`;
+    const name = wsPrefix + fnIndex;
+    handlers[name] = handlers.__ws[fnIndex];
+    return `return this.upgrade(${requestObjectName},{data:{_:${name},ctx:${requestObjectName},server:this}});`;
 }
 
 /**

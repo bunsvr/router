@@ -4,36 +4,38 @@ import Radx from './router';
 import composeRouter from './router/compose';
 import { convert, methodsLowerCase as methods } from './constants';
 import {
-    requestObjectName, storeObjectName,
-    urlStartIndex, requestURL, requestQueryIndex,
-    serverErrorHeader,
+    requestObjectName, urlStartIndex,
+    requestURL, requestQueryIndex,
     serverErrorHandler
 } from './router/constants';
 
 type HttpMethod = 'get' | 'post' | 'put' | 'delete' | 'connect' | 'options' | 'trace' | 'patch' | 'all' | 'guard' | 'reject';
-export type RouterMethods<I extends Dict<any>, R extends string> = {
+export type RouterMethods<R extends string> = {
     [K in HttpMethod]: <T extends string, O extends RouteOptions>(
         path: T, handler: O extends { body: infer B }
             ? (
                 B extends BodyParser
-                ? Handler<ConcatPath<R, T>, I, B>
-                : Handler<ConcatPath<R, T>, I>
-            ) : Handler<ConcatPath<R, T>, I>,
+                ? Handler<ConcatPath<R, T>, B>
+                : Handler<ConcatPath<R, T>>
+            ) : Handler<ConcatPath<R, T>>,
         options?: O
-    ) => Router<I>;
+    ) => Router;
 };
 
 /**
  * Specific plugin for router
  */
-export interface Plugin<I extends Dict<any> = Dict<any>, R = any> {
-    (app: Router<I>): R | void | Promise<R | void>
+export interface Plugin<R = any> {
+    (app: Router): R | void | Promise<R | void>
 }
 
-export interface Router<I> extends ServeOptions, RouterMethods<I, '/'> { };
+export interface Router extends ServeOptions, RouterMethods<'/'> { };
 
 export const wrappers = {
-    default: (d: ResponseBody) => new Response(d)
+    /**
+     * Wrap the response 
+     */
+    default: (d: ResponseBody) => new Response(d),
 }
 
 /**
@@ -41,14 +43,13 @@ export const wrappers = {
  * 
  * Note: This will run *only* the first route found
  */
-export class Router<I extends Dict<any> = {}> {
+export class Router {
     /**
      * Internal dynamic path router 
      */
     router: Radx<Handler>;
     private fn404: Handler;
     private fn400: Handler;
-    readonly storage: I;
     private injects: Record<string, any>;
     record: Record<string, Record<string, Handler>> = {};
 
@@ -66,12 +67,19 @@ export class Router<I extends Dict<any> = {}> {
             this[method] = (path: string, handler: Handler, opts: any) => {
                 if (opts) for (const prop in opts)
                     handler[prop] = opts[prop];
+
                 return this.use(METHOD, path, handler);
             }
         }
 
         // Automatically set port
-        if (Bun.env.PORT) this.port = Number(Bun.env.PORT);
+        if (Bun.env.PORT)
+            this.port = Number(Bun.env.PORT);
+        else if (!('port' in this))
+            this.port = 3000;
+
+        if (!('hostname' in this))
+            this.hostname = '127.0.0.1';
     }
 
     /**
@@ -107,7 +115,7 @@ export class Router<I extends Dict<any> = {}> {
      * @param path 
      * @param handler 
      */
-    ws<D extends Dict<any> = Dict<any>, T extends string = string>(path: T, handler: WebSocketHandler<WSContext<T, I> & D>) {
+    ws<D extends Dict<any> = Dict<any>, T extends string = string>(path: T, handler: WebSocketHandler<WSContext<T> & D>) {
         // @ts-ignore Should use macros instead
         this.get(path, this.webSocketHandlers.length);
         this.webSocketHandlers.push(handler);
@@ -118,9 +126,9 @@ export class Router<I extends Dict<any> = {}> {
     /**
      * Inject a variable into the fetch function scope
      */
-    inject(name: string, value: any) {
-        if (name.charCodeAt(0) === 95)
-            throw new Error('Name cannot have prefix `_` to avoid collision with internal parameters!');
+    inject(name: string, value: any, warning: boolean = false) {
+        if (name.charCodeAt(0) === 95 && warning)
+            console.warn('Name cannot have prefix `_` to avoid collision with internal parameters!');
 
         if (!this.injects) this.injects = {};
 
@@ -175,13 +183,6 @@ export class Router<I extends Dict<any> = {}> {
      */
     use(type: 500 | 'error'): this;
 
-    /**
-     * Attach the store to the router
-     * @param type
-     * @param store
-     */
-    use<T>(type: 'store', store: T): Router<I & T>;
-
     use(...args: any[]) {
         switch (args[0]) {
             case 404:
@@ -193,10 +194,6 @@ export class Router<I extends Dict<any> = {}> {
             case 500:
             case 'error':
                 this.error = args[1] || serverErrorHandler;
-                break;
-            case 'store':
-                this.initStore();
-                Object.assign(this.storage, args[1]);
                 break;
             default:
                 // Normal parsing
@@ -215,15 +212,6 @@ export class Router<I extends Dict<any> = {}> {
         }
 
         return this;
-    }
-
-    /**
-     * Create the store if not exists
-     */
-    private initStore() {
-        if (!this.storage)
-            // @ts-ignore
-            this.storage = {};
     }
 
     /**
@@ -250,16 +238,6 @@ export class Router<I extends Dict<any> = {}> {
             else for (k in this.injects)
                 app.inject(k, this.injects[k]);
         }
-
-        // Assign storage
-        if (this.storage) {
-            if (app.storage)
-                for (k in this.storage)
-                    app.storage[k] = this.storage[k];
-
-            else for (k in this.storage)
-                app.store(k, this.storage[k]);
-        }
     }
 
     /**
@@ -275,11 +253,11 @@ export class Router<I extends Dict<any> = {}> {
     readonly plugins: Promise<any>[] = [];
 
     /**
-     * Add a plugin. Plugins should be registered first.
+     * Add a plugin.
      * @param plugin 
      */
-    plug<R>(plugin: Plugin<I, R> | {
-        plugin: Plugin<I, R>
+    plug<R>(plugin: Plugin<R> | {
+        plugin: Plugin<R>
     }) {
         // Ignore null and undefined plugins
         if (!plugin) return;
@@ -293,13 +271,7 @@ export class Router<I extends Dict<any> = {}> {
             res.then(a => parsePluginResult(a, this))
         ); else parsePluginResult(res, this);
 
-        return this as unknown as (R extends Router<infer O>
-            ? Router<I & O>
-            : (R extends object
-                ? Router<I> & R
-                : Router<I>
-            )
-        );
+        return this as unknown as (R extends object ? this & R : this);
     }
 
     /**
@@ -312,48 +284,29 @@ export class Router<I extends Dict<any> = {}> {
     }
 
     /**
-     * Inject a property
-     * @param name
-     * @param value 
-     */
-    store<K extends string, V>(name: K, value: V): this & Router<I & { [key in K]: V }> {
-        this.initStore();
-        // @ts-ignore
-        this.storage[name] = value;
-        return this;
-    }
-
-    /**
-     * Return the value associated with 
-     * the key in the store
-     */
-    item(key: keyof I) {
-        return this.storage[key];
-    }
-
-    private assignRouter() {
-        if (Object.keys(this.record).length === 0) return;
-        this.router = new Radx;
-
-        let store: any, path: string, method: string;
-        for (path in this.record) {
-            store = this.router.add(path);
-
-            for (method in this.record[path])
-                store[method] = this.record[path][method];
-        }
-    }
-
-    /**
      * Get the literal, parameters and parameters value Stric uses to compose the fetch function.
      *
      * This method is intended for advanced usage.
      */
     get meta(): FetchMeta {
-        if (Object.keys(this.record).length === 0)
-            throw new Error('Please register a route first!');
+        // Check whether a path handler does exists
+        let key: string, hasRecord: boolean;
+        for (key in this.record) {
+            hasRecord = true;
+            break;
+        }
 
-        this.assignRouter();
+        // Assign records to the router
+        if (!hasRecord) throw new Error('No route has been assigned yet');
+        this.router = new Radx;
+
+        let store: any, method: string;
+        for (key in this.record) {
+            store = this.router.add(key);
+
+            for (method in this.record[key])
+                store[method] = this.record[key][method];
+        }
 
         // Assign websocket
         if (this.webSocketHandlers) {
@@ -363,27 +316,20 @@ export class Router<I extends Dict<any> = {}> {
             this.websocket.close ||= createWSHandler('close');
         }
 
+        // Compose the router
         const res = composeRouter(
-            this.router, !!this.storage, this.webSocketHandlers,
+            this.router, this.webSocketHandlers,
             this.base ? this.base.length + 1 : urlStartIndex,
             this.fn400, this.fn404
         );
 
-        if (this.storage)
-            res.store[storeObjectName] = this.storage;
-
         // People pls don't try to use this
-        if (this.injects) {
-            let iter: string;
+        if (this.injects) for (key in this.injects)
+            res.store[key] = this.injects[key];
 
-            for (iter in this.injects)
-                res.store[iter] = this.injects[iter];
-        }
-
-        res.fn = getPathParser(this) + res.fn;
         return {
             params: Object.keys(res.store),
-            body: `return function(${requestObjectName}){${res.fn}}`,
+            body: `return function(${requestObjectName}){${getPathParser(this) + res.fn}}`,
             values: Object.values(res.store)
         };
     }
@@ -398,16 +344,17 @@ export class Router<I extends Dict<any> = {}> {
     };
 
     /**
-     * Start an HTTP server at specified port and host.
+     * Start an HTTP server at specified port (defaults to `3000`) and host (defaults to `127.0.0.1`).
      */
-    boot() {
+    listen(gc: boolean = true) {
+        if (gc) Bun.gc(true);
         return Bun.serve(this);
     }
 }
 
 export function macro<T extends string>(fn: Handler<T> | string): Handler {
     if (typeof fn === 'string')
-        return macro(Function(`return()=>new Response('${fn}')`)());
+        fn = Function(`return()=>new Response('${fn}')`)() as Handler;
 
     fn.macro = true;
     return fn;
@@ -422,7 +369,7 @@ function createWSHandler(name: string) {
     return Function(body)();
 }
 
-function getPathParser<T>(app: Router<T>) {
+function getPathParser(app: Router) {
     return (typeof app.base === 'string'
         ? '' : `${urlStartIndex}=${requestURL}.indexOf('/',${app.uriLen ?? 12})+1;`
     ) + `${requestQueryIndex}=${requestURL}.indexOf('?',${typeof app.base === 'string'
@@ -430,7 +377,7 @@ function getPathParser<T>(app: Router<T>) {
     });` + `if(${requestQueryIndex}===-1)${requestQueryIndex}=${requestURL}.length;`;
 }
 
-function parsePluginResult(res: any, router: Router<any>) {
+function parsePluginResult(res: any, router: Router) {
     if (res instanceof Router) return;
 
     if (typeof res === 'object' && res !== null) {
@@ -439,7 +386,6 @@ function parsePluginResult(res: any, router: Router<any>) {
         for (key in res) {
             // Ignore keys in default prototype 
             if (key in Router.prototype) break;
-
             router[key] = res[key];
         }
     }

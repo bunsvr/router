@@ -3,12 +3,12 @@ import type { ConcatPath, Handler, WSContext, Wrapper } from "../core/types";
 import { convert, methodsLowerCase as methods } from "../core/constants";
 import type { WebSocketHandler } from "bun";
 
-export interface Group<I, R extends string> extends RouterMethods<I, R> { }
+export interface Group<R extends string> extends RouterMethods<R> { }
 
 /**
  * A routes group. Can be used as a plugin
  */
-export class Group<I extends Dict<any> = Dict<any>, R extends string = '/'> {
+export class Group<R extends string = '/'> {
     private record: any[][];
     private plugins: Plugin[];
     private wsRecord: any[][];
@@ -16,7 +16,7 @@ export class Group<I extends Dict<any> = Dict<any>, R extends string = '/'> {
     /**
      * Handle WebSocket
      */
-    ws<D extends Dict<any> = {}, T extends string = string>(path: T, handler: WebSocketHandler<WSContext<ConcatPath<R, T>, I> & D>) {
+    ws<D extends Dict<any> = {}, T extends string = string>(path: T, handler: WebSocketHandler<WSContext<ConcatPath<R, T>> & D>) {
         // Add a WebSocket handler
         this.wsRecord.push([path, handler]);
         return this;

@@ -56,7 +56,7 @@ export function mock(app: Router, opts: MockOptions = {}) {
         console.info('Fetch function:', meta.body);
     }
 
-    const fn = buildFetch(meta);
+    const fn = buildFetch(meta).bind(app);
 
     return {
         /**

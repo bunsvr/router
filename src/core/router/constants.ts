@@ -11,8 +11,7 @@ export const internalPrefix = '_',
     currentParamIndex = internalPrefix + 'e',
     nfHandler = internalPrefix + 'n',
     // Request related
-    requestObjectName = 'r',
-    storeObjectName = 's',
+    requestObjectName = 'c',
     // Request properties
     requestObjectPrefix = requestObjectName + '.',
     urlStartIndex = requestObjectPrefix + 'path',
