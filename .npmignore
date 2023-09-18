@@ -1,5 +1,6 @@
 # Git
 .gitignore
+.git
 
 # Packages
 node_modules

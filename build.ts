@@ -3,7 +3,8 @@ import { existsSync, rmSync } from 'fs';
 
 // Generating types
 const dir = './types';
-if (existsSync(dir)) rmSync(dir, { recursive: true });
+if (existsSync(dir))
+    rmSync(dir, { recursive: true });
 
 Bun.build({
     format: 'esm',
