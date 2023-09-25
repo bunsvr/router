@@ -1,4 +1,62 @@
 import type { Server, Errorlike } from 'bun';
+import {
+    ServeOptions as BasicServeOptions, TLSServeOptions,
+    TLSWebSocketServeOptions, WebSocketServeOptions
+} from 'bun';
+import { jsonHeader } from './router/constants';
+
+function EmptyObject() { };
+EmptyObject.prototype = Object.create(null);
+
+export const wrap = {
+    /**
+     * Wrap the response 
+     */
+    default(d: ResponseBody) {
+        return new Response(d);
+    },
+    /**
+     * Wrap the JSON response with `Response.json`
+     */
+    json(d: any) {
+        return new Response(JSON.stringify(d), jsonHeader);
+    },
+    /**
+     * Send all info in ctx
+     */
+    send(d: ResponseBody, ctx: Context) {
+        const opt = new EmptyObject();
+
+        if ('head' in ctx)
+            opt.headers = ctx.head;
+        if ('status' in ctx)
+            opt.status = ctx.status;
+        if ('statusText' in ctx)
+            opt.statusText = ctx.statusText;
+
+        return new Response(d, opt);
+    },
+    /**
+     * Send all info in ctx and the response as json
+     */
+    sendJSON(d: any, ctx: Context) {
+        let opt = new EmptyObject();
+
+        if ('head' in ctx) {
+            opt.headers = ctx.head;
+            opt.headers['Content-Type'] = 'application/json';
+        } else opt.headers = {
+            'Content-Type': 'application/json'
+        };
+
+        if ('status' in ctx)
+            opt.status = ctx.status;
+        if ('statusText' in ctx)
+            opt.statusText = ctx.statusText;
+
+        return new Response(JSON.stringify(d), opt);
+    }
+}
 
 type Check<T> = keyof T extends never ? undefined : T;
 type ExtractParams<T extends string> = T extends `${infer Segment}/${infer Rest}`
@@ -89,6 +147,14 @@ export interface Context<D extends BodyParser = 'none', P extends string = strin
      * This should be used with `guard` and `wrap` to add custom headers.
      */
     head: ContextHeaders;
+    /**
+     * Set the response status code
+     */
+    status: number | bigint;
+    /**
+     * Set a custom status message
+     */
+    statusText: string;
 }
 
 /**
@@ -123,10 +189,18 @@ export interface Handler<
  */
 export type BodyParser = 'json' | 'text' | 'form' | 'blob' | 'buffer' | 'none';
 
+type TrimEndPath<P extends string> = P extends `${infer C}/` ? C : P;
+type AddStartPath<P extends string> = P extends `/${infer C}` ? `/${C}` : `/${P}`;
+
+/**
+ * Normalize a path
+ */
+export type Normalize<P extends string> = TrimEndPath<AddStartPath<P>> extends '' ? '/' : TrimEndPath<AddStartPath<P>>;
+
 /**
  * Concat path
  */
-export type ConcatPath<A extends string, B extends string> = `${A extends `${infer C}/` ? C : A}${B}`;
+export type ConcatPath<A extends string, B extends string> = Normalize<`${Normalize<A>}${Normalize<B>}`>;
 
 /**
  * Fetch metadatas
@@ -147,11 +221,6 @@ export interface FetchMeta {
      */
     values: any[];
 }
-
-import {
-    ServeOptions as BasicServeOptions, TLSServeOptions,
-    TLSWebSocketServeOptions, WebSocketServeOptions
-} from 'bun';
 
 interface AllOptions extends BasicServeOptions, TLSServeOptions, WebSocketServeOptions, TLSWebSocketServeOptions { }
 
@@ -199,11 +268,16 @@ export interface RouteOptions {
      * Whether to use the handler as macro
      */
     macro?: boolean;
+
+    /**
+     * Specify a wrapper
+     */
+    wrap?: Wrapper | keyof typeof wrap | true;
 }
 
 // Behave like a post middleware
 export interface Wrapper {
-    (response: any): any;
+    (response: any, ctx: Context, server: Server): any;
 
     // Private props for modifying at compile time
     callName?: string;

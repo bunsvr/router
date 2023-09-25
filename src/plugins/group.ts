@@ -1,4 +1,4 @@
-import { Plugin, Router, RouterMethods, wrappers } from "../core/main";
+import { Router, RouterMethods, wrap } from "../core/main";
 import type { ConcatPath, Handler, WSContext, Wrapper } from "../core/types";
 import { convert, methodsLowerCase as methods } from "../core/constants";
 import type { WebSocketHandler } from "bun";
@@ -10,7 +10,6 @@ export interface Group<R extends string> extends RouterMethods<R> { }
  */
 export class Group<R extends string = '/'> {
     private record: any[][];
-    private plugins: Plugin[];
     private wsRecord: any[][];
 
     /**
@@ -34,7 +33,6 @@ export class Group<R extends string = '/'> {
         this.root = root;
         this.record = [];
         this.wsRecord = [];
-        this.plugins = [];
 
         for (const method of methods) this[method] = (path: string, handler: Handler, opts: any) => {
             // Special cases
@@ -50,22 +48,32 @@ export class Group<R extends string = '/'> {
     }
 
     /**
+     * Use the default response wrapper for a group of subroutes
+     */
+    wrap(path: string): this;
+
+    /**
+     * Add a response wrapper for a group of subroutes
+     */
+    wrap(path: string, type: keyof typeof wrap): this;
+
+    /**
+     * Add a custom response wrapper for a group of subroutes
+     */
+    wrap(path: string, fn: Wrapper): this;
+
+    /**
      * Wrap the response
      */
-    wrap(path: string, handler: Wrapper = wrappers.default) {
-        if (this.root !== '/') path = this.root + path;
+    wrap(path: string, handler: Wrapper | keyof typeof wrap = 'default') {
+        if (typeof handler === 'string')
+            handler = wrap[handler];
+
+        if (this.root !== '/')
+            path = this.root + path;
         path = convert(path);
 
         this.record.push(['WRAP', path, handler]);
-        return this;
-    }
-
-    /**
-     * Add a plugin
-     * @param plugin 
-     */
-    plug(...plugins: Plugin[]) {
-        this.plugins.push(...plugins);
         return this;
     }
 
@@ -74,7 +82,6 @@ export class Group<R extends string = '/'> {
      */
     plugin(app: Router) {
         for (const item of this.record) app[item[0]](...item.slice(1));
-        for (const item of this.plugins) app.plug(item);
         for (const item of this.wsRecord) app.ws(item[0], item[1]);
     }
 }

@@ -1,5 +1,5 @@
 import Radx from ".";
-import { Handler, Wrapper } from "../types";
+import { Handler, Wrapper, wrap } from "../types";
 import {
     currentParamIndex, handlerPrefix, invalidBodyHandler, prevParamIndex, requestObjectPrefix,
     rejectPrefix, requestObjectName, wsPrefix, urlStartIndex, requestParsedBody,
@@ -154,29 +154,18 @@ function composeNode(
 
     // Check store, inert, wilcard and params
     if (node.store !== null) {
+        if (node.store.WRAP) {
+            initWrapper(handlers, node.store.WRAP);
+            wrapper = node.store.WRAP;
+        }
+
         // Resolve guard
         if (node.store.GUARD) {
-            res = guardCheck(handlers, node.store);
+            res = guardCheck(handlers, node.store, wrapper);
             // Add to queue the needed string 
             queue += res[1];
             // Add to str the function body
             str += res[0];
-        }
-
-        if (node.store.WRAP) {
-            wrapper = node.store.WRAP;
-
-            wrapper.callName = wrapperPrefixes + handlers.__wrapperIndex;
-            handlers[wrapper.callName] = wrapper;
-            ++handlers.__wrapperIndex;
-
-            if (!('params' in wrapper)) {
-                wrapper.params = checkArgs(wrapper, 1);
-                wrapper.hasParams = wrapper.params !== '';
-
-                if (wrapper.hasParams)
-                    wrapper.params = ',' + wrapper.params;
-            }
         }
 
         // Check if any other handler is provided other than GUARD and REJECT
@@ -348,6 +337,22 @@ export function methodSplit(store: FunctionStore, handlers: HandlerDetails, wrap
     return str + '}';
 }
 
+export function initWrapper(handlers: HandlerDetails, wrapper: Wrapper) {
+    // Add it to the scope
+    wrapper.callName = wrapperPrefixes + handlers.__wrapperIndex;
+    handlers[wrapper.callName] = wrapper;
+    ++handlers.__wrapperIndex;
+
+    // Initialize additional params when it cannot be passed to then directly
+    if (!('params' in wrapper)) {
+        wrapper.params = checkArgs(wrapper, 1);
+        wrapper.hasParams = wrapper.params !== '';
+
+        if (wrapper.hasParams)
+            wrapper.params = ',' + wrapper.params;
+    }
+}
+
 /**
  * Checking methods and run the handler
  */
@@ -364,6 +369,17 @@ export function storeCheck(fn: Handler, handlers: HandlerDetails, wrapper: Wrapp
     if (typeof fn === 'number') return getWSHandler(fn, handlers);
     // Ignore wrappers for macros
     if (fn.macro) return getMacroStr(fn);
+
+    // Specific wrapper
+    if (fn.wrap) {
+        if (fn.wrap === true)
+            fn.wrap = wrap.default;
+        else if (typeof fn.wrap === 'string')
+            fn.wrap = wrap[fn.wrap];
+
+        initWrapper(handlers, fn.wrap);
+        wrapper = fn.wrap;
+    }
 
     let str = 'return ',
         methodName = handlerPrefix + handlers.__index,
@@ -384,17 +400,17 @@ export function storeCheck(fn: Handler, handlers: HandlerDetails, wrapper: Wrapp
             default: throw new Error('Invalid body parser specified: ' + fn.body);
         }
 
+        // This wrap when response is trully async
         str += `().then(function(_){${requestParsedBody}=_;`
             + `return ${methodCall}})`;
 
-        if (wrapper) str += wrapper.hasParams
-            ? `.then(function(_){return ${wrapper.callName}(_${wrapper.params})})`
-            : `.then(${wrapper.callName})`;
+        if (wrapper) str += wrapAsync(wrapper);
 
         str += handlers.__catchBody;
     } else {
+        // Wrap response normally
         if (wrapper)
-            methodCall = `${wrapper.callName}(${methodCall}${wrapper.params})`;
+            methodCall = checkWrap(fn, wrapper, methodCall);
 
         str += methodCall;
     }
@@ -403,34 +419,61 @@ export function storeCheck(fn: Handler, handlers: HandlerDetails, wrapper: Wrapp
     return str + ';';
 }
 
+function checkWrap(fn: Handler, wrapper: Wrapper, methodCall: string) {
+    if (fn.constructor.name === 'AsyncFunction')
+        return methodCall + wrapAsync(wrapper);
+
+    return wrapNormal(wrapper, methodCall);
+}
+
+function wrapNormal(wrapper: Wrapper, methodCall: string) {
+    return `${wrapper.callName}(${methodCall}${wrapper.params})`;
+}
+
+function wrapAsync(wrapper: Wrapper) {
+    return wrapper.hasParams
+        ? `.then(function(_){return ${wrapper.callName}(_${wrapper.params})})`
+        : `.then(${wrapper.callName})`;
+}
+
 /**
  * Handle GUARD and REJECT
  */
-function guardCheck(handlers: HandlerDetails, store: FunctionStore) {
-    let returnStatement = handlers.__defaultReturn,
+function guardCheck(handlers: HandlerDetails, store: FunctionStore, wrapper: Wrapper) {
+    let methodCall = handlers.__defaultReturn,
         str = '', queue = '', caller = '', args: string;
 
     // Check if a reject does exists to customize handling
     if (store.REJECT) {
         args = checkArgs(store.REJECT, 0);
-        caller = rejectPrefix + handlers.__rejectIndex;
 
-        handlers[caller] = store.REJECT;
-        returnStatement = `return ${caller}(${args})`;
+        // Add to the scope 
+        caller = rejectPrefix + handlers.__rejectIndex;
         ++handlers.__rejectIndex;
+        handlers[caller] = store.REJECT;
+
+        methodCall = `${caller}(${args})`;
+
+        // Try assign a wrapper
+        if (wrapper)
+            methodCall = checkWrap(store.REJECT, wrapper, methodCall);
+
+        methodCall = 'return ' + methodCall;
     }
 
     // Add guard
     caller = guardPrefix + handlers.__guardIndex;
     handlers[caller] = store.GUARD;
+    ++handlers.__guardIndex;
+
     args = checkArgs(store.GUARD, 0);
 
+    // Wrap the guard in async when needed
     if (store.GUARD.constructor.name === 'AsyncFunction') {
-        str += `return ${caller}(${args}).then(function(_){if(_===null)${returnStatement};`;
+        str += `return ${caller}(${args}).then(function(_){if(_===null)${methodCall};`;
         queue = '});';
-    } else str += `if(${caller}(${args})===null)${returnStatement};`;
+    } else str += `if(${caller}(${args})===null)${methodCall};`;
 
-    ++handlers.__guardIndex;
     return [str, queue];
 }
 

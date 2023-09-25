@@ -14,16 +14,21 @@ const app = new Router()
     .post('/json', ctx => Response.json(ctx.data), { body: 'json' })
     .get('/json', () => Response.json(predefinedBody))
 
-    .get('/api/v1/hi', macro('Hi'))
+    .get('/api/v1/hi', () => 'Hi')
 
     .guard('/api/v1', req => req.method === 'GET' ? null : true)
-    .reject('/api/v1', () => new Response('No enter!'))
+    .reject('/api/v1', () => 'No enter!')
+    .wrap('/api/v1')
 
     .all('/json/*', req => new Response(req.params['*']))
 
     .get('/str/1', () => 'Hello')
     .get('/str/2', () => 'Hi')
     .get('/str/3', (_, server) => server.port)
+    .get('/str/4', c => {
+        c.status = 418;
+        return `I'm a teapot`;
+    }, { wrap: 'send' })
     .wrap('/str')
 
     .use(404)
@@ -88,12 +93,16 @@ test('400', async () => {
 });
 
 test('Wrapper', async () => {
-    let res = await tester.text('/str/1');
+    let res: any = await tester.text('/str/1');
     expect(res).toBe('Hello');
 
     res = await tester.text('/str/2');
     expect(res).toBe('Hi');
 
     res = await tester.text('/str/3');
-    expect(res).toBe("3000");
+    expect(res).toBe('3000');
+
+    res = await tester.fetch('/str/4');
+    expect(await res.text()).toBe(`I'm a teapot`);
+    expect(res.status).toBe(418);
 });

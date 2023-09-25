@@ -22,6 +22,9 @@ export const internalPrefix = '_',
     requestParsedBody = requestObjectPrefix + 'data',
     // Predefined response options
     notFoundHeader = { status: 404 },
+    jsonHeader = {
+        headers: { 'Content-Type': 'application/json' }
+    },
     badReqHeader = { status: 400 },
     serverErrorHeader = { status: 500 },
     // Predefined response function

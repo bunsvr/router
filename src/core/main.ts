@@ -1,5 +1,8 @@
 import type { WebSocketHandler } from 'bun';
-import { BodyParser, FetchMeta, Handler, WSContext, ConcatPath, ServeOptions, BodyHandler, ErrorHandler, RouteOptions, Wrapper, ResponseBody } from './types';
+import {
+    BodyParser, FetchMeta, Handler, WSContext, ConcatPath, ServeOptions,
+    BodyHandler, ErrorHandler, RouteOptions, Wrapper, wrap
+} from './types';
 import Radx from './router';
 import composeRouter from './router/compose';
 import { convert, methodsLowerCase as methods } from './constants';
@@ -30,13 +33,6 @@ export interface Plugin<R = any> {
 }
 
 export interface Router extends ServeOptions, RouterMethods<'/'> { };
-
-export const wrappers = {
-    /**
-     * Wrap the response 
-     */
-    default: (d: ResponseBody) => new Response(d),
-}
 
 /**
  * A Stric router
@@ -83,11 +79,30 @@ export class Router {
     }
 
     /**
+     * Use the default response wrapper for a group of subroutes
+     */
+    wrap(path: string): this;
+
+    /**
+     * Add a response wrapper for a group of subroutes
+     */
+    wrap(path: string, type: keyof typeof wrap): this;
+
+    /**
+     * Add a custom response wrapper for a group of subroutes
+     */
+    wrap(path: string, fn: Wrapper): this;
+
+    /**
      * Add a response wrapper for subroutes of path.
      *
      * Wrap will not wrap reject responses
      */
-    wrap(path: string, handler: Wrapper = wrappers.default) {
+    wrap(path: string, handler: Wrapper | keyof typeof wrap = 'default') {
+        if (typeof handler === 'string')
+            handler = wrap[handler];
+
+        // @ts-ignore
         this.use('WRAP', path, handler);
         return this;
     }
@@ -363,10 +378,10 @@ export function macro<T extends string>(fn: Handler<T> | string): Handler {
 function createWSHandler(name: string) {
     const argsList = 'w' + (name === 'close' ? ',c,m' : '');
     // Optimization: message handler should exist
-    const body = name === 'message'
+    return Function(name === 'message'
         ? 'return function(w,m){w.data._.message(w,m)}'
-        : `return function(${argsList}){if('${name}' in w.data._)w.data._.${name}(${argsList})}`;
-    return Function(body)();
+        : `return function(${argsList}){if('${name}' in w.data._)w.data._.${name}(${argsList})}`
+    )();
 }
 
 function getPathParser(app: Router) {
