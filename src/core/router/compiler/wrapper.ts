@@ -9,11 +9,12 @@ export function initWrapper(handlers: HandlerDetails, wrapper: Wrapper) {
     handlers[wrapper.callName] = wrapper;
     ++handlers.__wrapperIndex;
 
-    // Initialize additional params when it cannot be passed to then directly
+    // Initialize additional params when the wrapper cannot be passed to `then()` directly
     if (!('params' in wrapper)) {
         wrapper.params = checkArgs(wrapper, 1);
         wrapper.hasParams = wrapper.params !== '';
 
+        // Prepend with ',' for later concatenations
         if (wrapper.hasParams)
             wrapper.params = ',' + wrapper.params;
     }

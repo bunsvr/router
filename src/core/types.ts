@@ -40,21 +40,16 @@ export const wrap = {
      * Send all info in ctx and the response as json
      */
     sendJSON(d: any, ctx: Context) {
-        let opt = new EmptyObject();
+        const opt = new EmptyObject();
 
-        if ('head' in ctx) {
+        if ('head' in ctx)
             opt.headers = ctx.head;
-            opt.headers['Content-Type'] = 'application/json';
-        } else opt.headers = {
-            'Content-Type': 'application/json'
-        };
-
         if ('status' in ctx)
             opt.status = ctx.status;
         if ('statusText' in ctx)
             opt.statusText = ctx.statusText;
 
-        return new Response(JSON.stringify(d), opt);
+        return Response.json(d, opt);
     }
 }
 
@@ -270,9 +265,10 @@ export interface RouteOptions {
     macro?: boolean;
 
     /**
-     * Specify a wrapper
+     * Specify a wrapper.
+     * If set to false, the parent wrapper will be disabled
      */
-    wrap?: Wrapper | keyof typeof wrap | true;
+    wrap?: Wrapper | keyof typeof wrap | true | false;
 }
 
 // Behave like a post middleware

@@ -93,7 +93,8 @@ export function storeCheck(fn: Handler, handlers: HandlerDetails, wrapper: Wrapp
 
         initWrapper(handlers, fn.wrap);
         wrapper = fn.wrap;
-    }
+    } else if (fn.wrap === false)
+        wrapper = null;
 
     let str = 'return ',
         methodName = handlerPrefix + handlers.__index,
@@ -101,7 +102,9 @@ export function storeCheck(fn: Handler, handlers: HandlerDetails, wrapper: Wrapp
 
     // Add to handlers
     handlers[methodName] = fn;
+    ++handlers.__index;
 
+    // Check body parser
     if (fn.body && fn.body !== 'none') {
         str += requestObjectPrefix;
 
@@ -129,7 +132,6 @@ export function storeCheck(fn: Handler, handlers: HandlerDetails, wrapper: Wrapp
         str += methodCall;
     }
 
-    ++handlers.__index;
     return str + ';';
 }
 
