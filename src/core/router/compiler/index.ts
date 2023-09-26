@@ -9,7 +9,7 @@ import { HandlerDetails } from '../types';
 import { checkArgs } from "./resolveArgs";
 import { compileNode } from './node';
 
-export default function composeRouter(
+export default function compileRouter(
     router: Radx, __ws: any[],
     startIndex: number | string, fn400: any, fn404: any
 ) {

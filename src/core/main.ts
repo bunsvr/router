@@ -4,7 +4,7 @@ import {
     BodyHandler, ErrorHandler, RouteOptions, Wrapper, wrap
 } from './types';
 import Radx from './router';
-import composeRouter from './router/compiler';
+import compileRouter from './router/compiler';
 import { convert, methodsLowerCase as methods } from './constants';
 import {
     requestObjectName, urlStartIndex,
@@ -332,7 +332,7 @@ export class Router {
         }
 
         // Compose the router
-        const res = composeRouter(
+        const res = compileRouter(
             this.router, this.webSocketHandlers,
             this.base ? this.base.length + 1 : urlStartIndex,
             this.fn400, this.fn404
