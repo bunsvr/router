@@ -7,6 +7,7 @@ import { jsonHeader } from './router/compiler/constants';
 
 function EmptyObject() { };
 EmptyObject.prototype = Object.create(null);
+const { stringify } = JSON;
 
 export const wrap = {
     /**
@@ -19,7 +20,7 @@ export const wrap = {
      * Wrap the JSON response with `Response.json`
      */
     json(d: any) {
-        return new Response(JSON.stringify(d), jsonHeader);
+        return new Response(stringify(d), jsonHeader);
     },
     /**
      * Send all info in ctx

@@ -9,10 +9,10 @@ import { checkArgs } from './resolveArgs';
  * Choose the best check for a method group
  */
 export function methodSplit(store: FunctionStore, handlers: HandlerDetails, wrapper: Wrapper) {
-    let method: string, hasP = false;
+    let method: string;
     const methods = [];
 
-    // Ignore special methods and check whether POST, PUT or PATCH exists
+    // Ignore special methods
     for (method in store)
         switch (method) {
             case 'ALL':
@@ -21,48 +21,22 @@ export function methodSplit(store: FunctionStore, handlers: HandlerDetails, wrap
             case 'WRAP':
                 continue;
 
-            case 'POST':
-            case 'PATCH':
-            case 'PUT':
-                hasP = true;
-
             default:
                 methods.push(method);
                 break;
         };
 
     if (methods.length === 0) return '';
-
-    // Choose the best method handler to return
     if (methods.length === 1) {
-        let expr: string = requestMethod + '.';
-        switch (methods[0]) {
-            case 'GET': expr += 'charCodeAt(0)===71'; break;
-            case 'POST': expr += 'charCodeAt(2)===83'; break;
-            case 'PUT': expr += 'charCodeAt(0)===80'; break;
-            case 'DELETE': expr += 'length===6'; break;
-            case 'PATCH': expr += 'charCodeAt(1)===65'; break;
-            case 'CONNECT': expr += 'charCodeAt(2)===78'; break;
-            case 'OPTIONS': expr += 'charCodeAt(0)===79'; break;
-            case 'TRACE': expr += 'charCodeAt(0)===84'; break;
-        }
-
-        return `if(${expr})${storeCheck(store[methods[0]], handlers, wrapper)}`;
+        method = methods[0];
+        return `if(${requestMethod}==='${method}')${storeCheck(store[method], handlers, wrapper)}`;
     }
 
     // Multiple methods
-    let str = `switch(${requestMethod}`;
-    if (hasP) {
-        str += '){';
+    let str = `switch(${requestMethod}){`;
 
-        for (method of methods)
-            str += `case'${method}':${storeCheck(store[method], handlers, wrapper)}`;
-    } else {
-        str += `.charCodeAt(0)){`;
-
-        for (method of methods)
-            str += `case ${method.charCodeAt(0)}:${storeCheck(store[method], handlers, wrapper)}`;
-    }
+    for (method of methods)
+        str += `case'${method}':${storeCheck(store[method], handlers, wrapper)}`;
 
     return str + '}';
 }
