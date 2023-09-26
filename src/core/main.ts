@@ -4,13 +4,13 @@ import {
     BodyHandler, ErrorHandler, RouteOptions, Wrapper, wrap
 } from './types';
 import Radx from './router';
-import composeRouter from './router/compose';
+import composeRouter from './router/compiler';
 import { convert, methodsLowerCase as methods } from './constants';
 import {
     requestObjectName, urlStartIndex,
     requestURL, requestQueryIndex,
     serverErrorHandler
-} from './router/constants';
+} from './router/compiler/constants';
 
 type HttpMethod = 'get' | 'post' | 'put' | 'delete' | 'connect' | 'options' | 'trace' | 'patch' | 'all' | 'guard' | 'reject';
 export type RouterMethods<R extends string> = {

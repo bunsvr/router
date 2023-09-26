@@ -3,7 +3,7 @@ import {
     ServeOptions as BasicServeOptions, TLSServeOptions,
     TLSWebSocketServeOptions, WebSocketServeOptions
 } from 'bun';
-import { jsonHeader } from './router/constants';
+import { jsonHeader } from './router/compiler/constants';
 
 function EmptyObject() { };
 EmptyObject.prototype = Object.create(null);
