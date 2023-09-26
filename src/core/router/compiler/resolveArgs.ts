@@ -8,6 +8,7 @@ export function extractArgs(fn: Function) {
     return str.substring(st, ed);
 }
 
+// Whether to pass `ctx` and `server` to args or not
 export function checkArgs(str: string | Function, skips: number) {
     if (typeof str !== 'string') str = extractArgs(str);
     if (str.length === 0) return '';

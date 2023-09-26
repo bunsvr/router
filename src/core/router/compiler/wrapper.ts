@@ -20,10 +20,9 @@ export function initWrapper(handlers: HandlerDetails, wrapper: Wrapper) {
 }
 
 export function checkWrap(fn: Handler, wrapper: Wrapper, methodCall: string) {
-    if (fn.constructor.name === 'AsyncFunction')
-        return methodCall + wrapAsync(wrapper);
-
-    return wrapNormal(wrapper, methodCall);
+    return fn.constructor.name === 'AsyncFunction'
+        ? methodCall + wrapAsync(wrapper)
+        : wrapNormal(wrapper, methodCall);
 }
 
 export function wrapNormal(wrapper: Wrapper, methodCall: string) {
