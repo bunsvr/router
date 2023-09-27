@@ -32,7 +32,7 @@ export default function compileRouter(
         handlersRec[invalidBodyHandler] = fn400;
         handlersRec.__catchBody = args === ''
             ? `.catch(${invalidBodyHandler})`
-            : `.catch(function(_){return ${invalidBodyHandler}(_,${args})})`;
+            : `.catch(_=>${invalidBodyHandler}(_,${args}))`;
     }
     // Special 400
     else if (fn400 === false) {

@@ -23,12 +23,15 @@ const app = new Router()
     .all('/json/*', req => new Response(req.params['*']))
 
     .get('/str/1', () => 'Hello')
-    .get('/str/2', () => 'Hi')
+    .get('/str/2', async () => 'Hi')
     .get('/str/3', (_, server) => server.port)
+
     .get('/str/4', c => {
         c.status = 418;
         return `I'm a teapot`;
     }, { wrap: 'send' })
+
+    .get('/str/5', macro(10))
     .wrap('/str')
 
     .use(404)
@@ -105,4 +108,7 @@ test('Wrapper', async () => {
     res = await tester.fetch('/str/4');
     expect(await res.text()).toBe(`I'm a teapot`);
     expect(res.status).toBe(418);
+
+    res = await tester.text('/str/5');
+    expect(res).toBe('10');
 });

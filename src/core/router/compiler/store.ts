@@ -92,7 +92,7 @@ export function storeCheck(fn: Handler, handlers: HandlerDetails, wrapper: Wrapp
         }
 
         // This wrap when response is trully async
-        str += `().then(function(_){${requestParsedBody}=_;`
+        str += `().then(_=>{${requestParsedBody}=_;`
             + `return ${methodCall}})`;
 
         if (wrapper) str += wrapAsync(wrapper);

@@ -32,6 +32,6 @@ export function wrapNormal(wrapper: Wrapper, methodCall: string) {
 
 export function wrapAsync(wrapper: Wrapper) {
     return wrapper.hasParams
-        ? `.then(function(_){return ${wrapper.callName}(_${wrapper.params})})`
+        ? `.then(_=>${wrapper.callName}(_${wrapper.params}))`
         : `.then(${wrapper.callName})`;
 }

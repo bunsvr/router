@@ -75,7 +75,7 @@ export class Router {
             this.port = 3000;
 
         if (!('hostname' in this))
-            this.hostname = '127.0.0.1';
+            this.hostname = '0.0.0.0';
     }
 
     /**
@@ -363,15 +363,28 @@ export class Router {
      */
     listen(gc: boolean = true) {
         if (gc) Bun.gc(true);
-        return Bun.serve(this);
+        const s = Bun.serve(this);
+
+        // Log additional info
+        console.info(`Started an HTTP server at http${this.tls || this.ca || this.key ? 's' : ''}://${s.hostname + (
+            s.port === 80 || s.port === 443 ? '' : ':' + s.port
+        )} in ${s.development ? 'development' : 'production'} mode`);
+
+        return s;
     }
 }
 
-export function macro<T extends string>(fn: Handler<T> | string): Handler {
-    if (typeof fn === 'string')
+export function macro<T extends string>(fn: Handler<T> | string | number | boolean | null | undefined | object): Handler {
+    if (fn === null || fn === undefined)
+        fn = Function('return()=>new Response')() as Handler;
+    else if (typeof fn === 'string')
         fn = Function(`return()=>new Response('${fn}')`)() as Handler;
+    else if (typeof fn !== 'function')
+        fn = Function(`return()=>new Response('${JSON.stringify(fn)}')`)() as Handler;
 
+    // @ts-ignore
     fn.macro = true;
+    // @ts-ignore
     return fn;
 }
 
@@ -379,8 +392,8 @@ function createWSHandler(name: string) {
     const argsList = 'w' + (name === 'close' ? ',c,m' : '');
     // Optimization: message handler should exist
     return Function(name === 'message'
-        ? 'return function(w,m){w.data._.message(w,m)}'
-        : `return function(${argsList}){if('${name}' in w.data._)w.data._.${name}(${argsList})}`
+        ? 'return (w,m)=>{w.data._.message(w,m)}'
+        : `return (${argsList})=>{if('${name}'in w.data._)w.data._.${name}(${argsList})}`
     )();
 }
 

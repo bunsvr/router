@@ -13,19 +13,15 @@ export const wrap = {
     /**
      * Wrap the response 
      */
-    default(d: ResponseBody) {
-        return new Response(d);
-    },
+    default: (d: ResponseBody) => new Response(d),
     /**
      * Wrap the JSON response with `Response.json`
      */
-    json(d: any) {
-        return new Response(stringify(d), jsonHeader);
-    },
+    json: (d: any) => new Response(stringify(d), jsonHeader),
     /**
      * Send all info in ctx
      */
-    send(d: ResponseBody, ctx: Context) {
+    send: (d: ResponseBody, ctx: Context) => {
         const opt = new EmptyObject();
 
         if ('head' in ctx)
@@ -40,7 +36,7 @@ export const wrap = {
     /**
      * Send all info in ctx and the response as json
      */
-    sendJSON(d: any, ctx: Context) {
+    sendJSON: (d: any, ctx: Context) => {
         const opt = new EmptyObject();
 
         if ('head' in ctx)
@@ -52,7 +48,7 @@ export const wrap = {
 
         return Response.json(d, opt);
     }
-}
+};
 
 type Check<T> = keyof T extends never ? undefined : T;
 type ExtractParams<T extends string> = T extends `${infer Segment}/${infer Rest}`
