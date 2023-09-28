@@ -28,7 +28,7 @@ const app = new Router()
 
     .get('/str/4', c => {
         c.status = 418;
-        return `I'm a teapot`;
+        return 'I\'m a teapot';
     }, { wrap: 'send' })
 
     .get('/str/5', macro(10))
