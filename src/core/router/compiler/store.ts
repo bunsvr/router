@@ -1,6 +1,6 @@
 import { FunctionStore, HandlerDetails } from '../types';
 import { Wrapper, Handler, wrap } from '../../types';
-import { requestMethod, handlerPrefix, requestObjectPrefix, requestParsedBody, cachedMethod } from './constants';
+import { handlerPrefix, requestObjectPrefix, requestParsedBody, cachedMethod } from './constants';
 import { initWrapper, checkWrap, wrapAsync } from './wrapper';
 import { getWSHandler, getMacroHandler } from './getHandler';
 import { checkArgs } from './resolveArgs';

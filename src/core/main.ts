@@ -7,8 +7,7 @@ import Radx from './router';
 import compileRouter from './router/compiler';
 import { convert, methodsLowerCase as methods } from './constants';
 import {
-    requestObjectName, urlStartIndex,
-    requestURL, requestQueryIndex,
+    requestObjectName, urlStartIndex, requestQueryIndex,
     serverErrorHandler, cachedMethod, cachedURL
 } from './router/compiler/constants';
 
