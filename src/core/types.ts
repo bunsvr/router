@@ -74,7 +74,7 @@ export const wrap = {
             opt.statusText = ctx.statusText;
 
         // Validation for null
-        return new Response(d === null ? null : stringify(d), opt);
+        return new Response(stringify(d), opt);
     },
 };
 
