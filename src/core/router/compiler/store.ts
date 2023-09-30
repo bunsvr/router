@@ -1,6 +1,6 @@
 import { FunctionStore, HandlerDetails } from '../types';
 import { Wrapper, Handler, wrap } from '../../types';
-import { requestMethod, handlerPrefix, requestObjectPrefix, requestParsedBody } from './constants';
+import { requestMethod, handlerPrefix, requestObjectPrefix, requestParsedBody, cachedMethod } from './constants';
 import { initWrapper, checkWrap, wrapAsync } from './wrapper';
 import { getWSHandler, getMacroHandler } from './getHandler';
 import { checkArgs } from './resolveArgs';
@@ -29,11 +29,11 @@ export function methodSplit(store: FunctionStore, handlers: HandlerDetails, wrap
     if (methods.length === 0) return '';
     if (methods.length === 1) {
         method = methods[0];
-        return `if(${requestMethod}==='${method}')${storeCheck(store[method], handlers, wrapper)}`;
+        return `if(${cachedMethod}==='${method}')${storeCheck(store[method], handlers, wrapper)}`;
     }
 
     // Multiple methods
-    let str = `switch(${requestMethod}){`;
+    let str = `switch(${cachedMethod}){`;
 
     for (method of methods)
         str += `case'${method}':${storeCheck(store[method], handlers, wrapper)}`;

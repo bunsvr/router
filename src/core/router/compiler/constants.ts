@@ -14,6 +14,8 @@ export const internalPrefix = '_',
 
     // Request related
     requestObjectName = 'c',
+    cachedMethod = internalPrefix + 'm',
+    cachedURL = internalPrefix + 'u',
 
     // Request properties
     requestObjectPrefix = requestObjectName + '.',

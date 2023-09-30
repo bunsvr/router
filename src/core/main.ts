@@ -9,7 +9,7 @@ import { convert, methodsLowerCase as methods } from './constants';
 import {
     requestObjectName, urlStartIndex,
     requestURL, requestQueryIndex,
-    serverErrorHandler
+    serverErrorHandler, cachedMethod, cachedURL
 } from './router/compiler/constants';
 
 type HttpMethod = 'get' | 'post' | 'put' | 'delete' | 'connect' | 'options' | 'trace' | 'patch' | 'all' | 'guard' | 'reject';
@@ -344,7 +344,7 @@ export class Router {
 
         return {
             params: Object.keys(res.store),
-            body: `return function(${requestObjectName}){${getPathParser(this) + res.fn}}`,
+            body: `return function(${requestObjectName}){${getVarCreate() + getPathParser(this) + res.fn}}`,
             values: Object.values(res.store)
         };
     }
@@ -397,12 +397,16 @@ function createWSHandler(name: string) {
     )();
 }
 
+function getVarCreate() {
+    return `const {url:${cachedURL},method:${cachedMethod}}=${requestObjectName};`;
+}
+
 function getPathParser(app: Router) {
     return (typeof app.base === 'string'
-        ? '' : `${urlStartIndex}=${requestURL}.indexOf('/',${app.uriLen ?? 12})+1;`
-    ) + `${requestQueryIndex}=${requestURL}.indexOf('?',${typeof app.base === 'string'
+        ? '' : `${urlStartIndex}=${cachedURL}.indexOf('/',${app.uriLen ?? 12})+1;`
+    ) + `${requestQueryIndex}=${cachedURL}.indexOf('?',${typeof app.base === 'string'
         ? app.base.length + 1 : urlStartIndex
-    });` + `if(${requestQueryIndex}===-1)${requestQueryIndex}=${requestURL}.length;`;
+    });` + `if(${requestQueryIndex}===-1)${requestQueryIndex}=${cachedURL}.length;`;
 }
 
 function parsePluginResult(res: any, router: Router) {
