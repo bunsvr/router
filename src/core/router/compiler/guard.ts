@@ -39,7 +39,7 @@ export function guardCheck(handlers: HandlerDetails, store: FunctionStore, wrapp
     // Wrap the guard in async when needed
     if (store.GUARD.constructor.name === 'AsyncFunction') {
         str += `return ${caller}(${args}).then(_=>{if(_===null)${methodCall};`;
-        queue = '});';
+        queue = handlers.__defaultReturn + '});';
     } else str += `if(${caller}(${args})===null)${methodCall};`;
 
     return [str, queue];

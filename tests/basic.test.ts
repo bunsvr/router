@@ -16,7 +16,7 @@ const app = new Router()
 
     .get('/api/v1/hi', () => 'Hi')
 
-    .guard('/api/v1', req => req.method === 'GET' ? null : true)
+    .guard('/api/v1', async req => req.method === 'GET' ? null : true)
     .reject('/api/v1', () => 'No enter!')
     .wrap('/api/v1')
 
