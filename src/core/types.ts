@@ -19,10 +19,6 @@ export const wrap = {
      */
     json: (d: any) => new Response(stringify(d), jsonHeader),
     /**
-     * Convert the input to string using `.toString()` then wrap with a `Response` object
-     */
-    serialize: (d: any) => new Response(d.toString()),
-    /**
      * Send all info in ctx
      */
     send: (d: ResponseBody, ctx: Context) => {
@@ -38,37 +34,19 @@ export const wrap = {
         return new Response(d, opt);
     },
     /**
-     * Work like send but it converts response to string using `.toString()`
-     */
-    sends: (d: ResponseBody, ctx: Context) => {
-        const opt = new EmptyObject();
-
-        if ('head' in ctx)
-            opt.headers = ctx.head;
-        if ('status' in ctx)
-            opt.status = ctx.status;
-        if ('statusText' in ctx)
-            opt.statusText = ctx.statusText;
-
-        // Validation for null
-        return new Response(d === null ? null : d.toString(), opt);
-    },
-    /**
      * Send all info in ctx and the response as json
      */
     sendj: (d: any, ctx: Context) => {
-        const opt = new EmptyObject();
+        let opt: any;
 
         if ('head' in ctx) {
-            opt.headers = ctx.head;
-
-            // Set 'Content-Type' if not set
-            if (!('Content-Type' in opt.headers))
-                opt.headers['Content-Type'] = 'application/json';
-        } else opt.headers = { 'Content-Type': 'application/json' };
+            ctx.head['Content-Type'] = 'application/json';
+            opt = { headers: ctx.head };
+        } else opt = {
+            headers: { 'Content-Type': 'application/json' }
+        };
 
         if ('status' in ctx)
-
             opt.status = ctx.status;
         if ('statusText' in ctx)
             opt.statusText = ctx.statusText;
