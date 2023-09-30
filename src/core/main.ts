@@ -143,7 +143,7 @@ export class Router {
      */
     inject(name: string, value: any, warning: boolean = false) {
         if (name.charCodeAt(0) === 95 && warning)
-            console.warn('Name cannot have prefix `_` to avoid collision with internal parameters!');
+            console.warn('Name should not have prefix `_` to avoid collision with internal parameters!');
 
         if (!this.injects) this.injects = {};
 
