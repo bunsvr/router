@@ -1,7 +1,7 @@
 import Radx from '..';
 import {
     invalidBodyHandler, requestQueryIndex,
-    nfHandler, notFoundHeader, badRequestHandler, cachedURL
+    nfHandler, notFoundHeader, badRequestHandler, requestURL
 } from './constants';
 
 import { HandlerDetails } from '../types';
@@ -18,7 +18,7 @@ export default function compileRouter(
     // Store all states
     const handlersRec: HandlerDetails = {
         __index: 0, __defaultReturn: 'return',
-        __pathStr: cachedURL, __wrapperIndex: 0,
+        __pathStr: requestURL, __wrapperIndex: 0,
         __pathLen: requestQueryIndex,
         __rejectIndex: 0, __catchBody: '',
         __ws, __guardIndex: 0

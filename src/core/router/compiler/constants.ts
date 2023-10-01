@@ -14,13 +14,11 @@ export const internalPrefix = '_',
 
     // Request related
     requestObjectName = 'c',
-    cachedMethod = internalPrefix + 'm',
-    cachedURL = internalPrefix + 'u',
+    cachedMethod = 'method',
 
     // Request properties
     requestObjectPrefix = requestObjectName + '.',
     urlStartIndex = requestObjectPrefix + 'path',
-    requestMethod = requestObjectPrefix + 'method',
     requestURL = requestObjectPrefix + 'url',
     requestQueryIndex = requestObjectPrefix + 'query',
     requestParams = requestObjectPrefix + 'params',
