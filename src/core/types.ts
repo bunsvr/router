@@ -31,7 +31,7 @@ export const wrap = {
         if ('statusText' in ctx)
             opt.statusText = ctx.statusText;
 
-        return new Response(d, opt);
+        return new Response('response' in ctx ? ctx.response : d, opt);
     },
     /**
      * Send all info in ctx and the response as json
@@ -52,7 +52,7 @@ export const wrap = {
             opt.statusText = ctx.statusText;
 
         // Validation for null
-        return new Response(stringify(d), opt);
+        return new Response(stringify('response' in ctx ? ctx.response : d), opt);
     },
 };
 
@@ -153,6 +153,10 @@ export interface Context<D extends BodyParser = 'none', P extends string = strin
      * Set a custom status message
      */
     statusText: string;
+    /**
+     * Set a response to be used or validate later
+     */
+    response: any;
 }
 
 /**
