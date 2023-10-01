@@ -1,4 +1,4 @@
-import { Router, RouterMethods, wrap } from "../core/main";
+import { Router, RouterMethods, wrap, Plugin } from "../core/main";
 import type { ConcatPath, Handler, WSContext, Wrapper } from "../core/types";
 import { convert, methodsLowerCase as methods } from "../core/constants";
 import type { WebSocketHandler } from "bun";
@@ -9,13 +9,20 @@ export interface Group<R extends string> extends RouterMethods<R> { }
  * A routes group. Can be used as a plugin
  */
 export class Group<R extends string = '/'> {
-    private record: any[][];
-    private wsRecord: any[][];
+    private record: any[][] = [];
+    private wsRecord: any[][] = [];
+    private plugins: any[] = [];
 
     /**
      * Handle WebSocket
      */
     ws<D extends Dict<any> = {}, T extends string = string>(path: T, handler: WebSocketHandler<WSContext<ConcatPath<R, T>> & D>) {
+        if (this.root !== '/')
+            // @ts-ignore 
+            path = this.root + path;
+        // @ts-ignore
+        path = convert(path);
+
         // Add a WebSocket handler
         this.wsRecord.push([path, handler]);
         return this;
@@ -31,8 +38,6 @@ export class Group<R extends string = '/'> {
             // @ts-ignore
             root = root.slice(0, -1);
         this.root = root;
-        this.record = [];
-        this.wsRecord = [];
 
         for (const method of methods) this[method] = (path: string, handler: Handler, opts: any) => {
             // Special cases
@@ -78,10 +83,27 @@ export class Group<R extends string = '/'> {
     }
 
     /**
+     * Add a plugin
+     * @param plugin 
+     */
+    plug(...plugins: Plugin[]) {
+        this.plugins.push(...plugins.map(p => {
+            if (p instanceof Group && this.root !== '/')
+                // @ts-ignore
+                p.root = this.root + p.root;
+
+            return p;
+        }));
+        return this;
+    }
+
+    /**
      * Get the plugin
      */
     plugin(app: Router) {
-        for (const item of this.record) app[item[0]](...item.slice(1));
-        for (const item of this.wsRecord) app.ws(item[0], item[1]);
+        let item: any;
+        for (item of this.record) app[item[0]](...item.slice(1));
+        for (item of this.plugins) app.plug(item);
+        for (item of this.wsRecord) app.ws(item[0], item[1]);
     }
 }

@@ -257,8 +257,8 @@ export class Router {
     /**
      * Mount another WinterCG compliant app to a path
      */
-    mount(path: string, app: { fetch: (request: Request) => any }) {
-        this.all(path, app.fetch);
+    mount(path: string, app: { fetch: (request: any) => any }) {
+        this.all(path, app.fetch as any);
     }
 
     /**
@@ -323,7 +323,7 @@ export class Router {
         }
 
         // Assign websocket
-        if (this.webSocketHandlers) {
+        if (this.webSocketHandlers.length !== 0) {
             this.websocket ||= { message: createWSHandler('message') };
             this.websocket.open ||= createWSHandler('open');
             this.websocket.drain ||= createWSHandler('drain');
