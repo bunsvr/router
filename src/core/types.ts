@@ -36,7 +36,7 @@ export const wrap = {
     /**
      * Send all info in ctx and the response as json
      */
-    sendj: (d: any, ctx: Context) => {
+    sendJSON: (d: any, ctx: Context) => {
         let opt: any;
 
         if ('head' in ctx) {
