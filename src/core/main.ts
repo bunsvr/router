@@ -74,7 +74,7 @@ export class Router {
             this.port = 3000;
 
         if (!('hostname' in this))
-            this.hostname = '0.0.0.0';
+            this.hostname = '127.0.0.1';
     }
 
     /**
@@ -362,7 +362,10 @@ export class Router {
      */
     listen(gc: boolean = true) {
         if (gc) Bun.gc(true);
-        const s = Bun.serve(this);
+        const fetch = this.fetch, s = Bun.serve({
+            ...this,
+            fetch
+        });
 
         // Log additional info
         console.info(`Started an HTTP server at http${this.tls || this.ca || this.key ? 's' : ''}://${s.hostname + (
