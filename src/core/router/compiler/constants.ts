@@ -12,6 +12,7 @@ export const internalPrefix = '_',
     currentParamIndex = internalPrefix + 'e',
     nfHandler = internalPrefix + 'n',
     appDetail = internalPrefix + 'a',
+    debugServer = appDetail + '.' + 'server',
 
     // Request related
     requestObjectName = 'c',

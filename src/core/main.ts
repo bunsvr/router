@@ -1,4 +1,4 @@
-import { plugin, type WebSocketHandler } from 'bun';
+import { type WebSocketHandler } from 'bun';
 import {
     RouterMethods, FetchMeta, Handler, WSContext, ServeOptions,
     BodyHandler, ErrorHandler, Wrapper, wrap, RouterMeta, Plugin
@@ -402,20 +402,6 @@ function getPathParser(app: Router) {
     ) + `${requestQueryIndex}=${requestURL}.indexOf('?',${typeof app.base === 'string'
         ? app.base.length + 1 : urlStartIndex
     });` + `if(${requestQueryIndex}===-1)${requestQueryIndex}=${requestURL}.length;`;
-}
-
-function parsePluginResult(res: any, router: Router) {
-    if (res instanceof Router) return;
-
-    if (typeof res === 'object' && res !== null) {
-        let key: string;
-
-        for (key in res) {
-            // Ignore keys in default prototype 
-            if (key in Router.prototype) break;
-            router[key] = res[key];
-        }
-    }
 }
 
 /**
