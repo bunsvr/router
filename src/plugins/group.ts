@@ -93,8 +93,15 @@ export class Group<R extends string = '/'> {
             if (p instanceof Group && this.root !== '/') {
                 let item: any[];
 
+                // Prepend root
                 for (item of p.record)
                     item[1] = this.root + item[1];
+
+                for (item of p.wsRecord)
+                    item[0] = this.root + item[0];
+
+                // @ts-ignore
+                p.root = this.root + p.root;
             }
 
             return p;
