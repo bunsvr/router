@@ -86,7 +86,9 @@ export class Group<R extends string = '/'> {
      * Add a plugin
      * @param plugin 
      */
-    plug(...plugins: Plugin[]) {
+    plug(...plugins: (Plugin | {
+        plugin: Plugin
+    })[]) {
         this.plugins.push(...plugins.map(p => {
             if (p instanceof Group && this.root !== '/')
                 // @ts-ignore

@@ -1,4 +1,4 @@
-import type { WebSocketHandler } from 'bun';
+import { plugin, type WebSocketHandler } from 'bun';
 import {
     RouterMethods, FetchMeta, Handler, WSContext, ServeOptions,
     BodyHandler, ErrorHandler, Wrapper, wrap, RouterMeta, Plugin
@@ -246,12 +246,8 @@ export class Router {
      */
     readonly plugins: Promise<any>[] = [];
 
-    /**
-     * Add a plugin.
-     * @param plugin 
-     */
-    plug<R>(plugin: Plugin<R> | {
-        plugin: Plugin<R>
+    private plugOne(plugin: Plugin | {
+        plugin: Plugin
     }) {
         // Ignore null and undefined plugins
         if (!plugin) return;
@@ -261,11 +257,18 @@ export class Router {
             : plugin(this);
 
         // Add to queue if not resolved
-        if (res instanceof Promise) this.plugins.push(
-            res.then(a => parsePluginResult(a, this))
-        ); else parsePluginResult(res, this);
+        if (res instanceof Promise) this.plugins.push(res);
+    }
 
-        return this as unknown as (R extends object ? this & R : this);
+    /**
+     * Add plugins 
+     */
+    plug(...plugins: (Plugin | {
+        plugin: Plugin
+    })[]) {
+        let p: any;
+        for (p of plugins) this.plugOne(p);
+        return this;
     }
 
     /**

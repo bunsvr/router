@@ -312,6 +312,6 @@ export type RouterMethods<R extends string> = {
 /**
  * Specific plugin for router
  */
-export interface Plugin<R = any> {
-    (app: Router): R | void | Promise<R | void>
+export interface Plugin {
+    (app: Router): Router | void | Promise<Router | void>
 }
