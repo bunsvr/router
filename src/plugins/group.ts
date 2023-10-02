@@ -90,9 +90,12 @@ export class Group<R extends string = '/'> {
         plugin: Plugin
     })[]) {
         this.plugins.push(...plugins.map(p => {
-            if (p instanceof Group && this.root !== '/')
-                // @ts-ignore
-                p.root = this.root + p.root;
+            if (p instanceof Group && this.root !== '/') {
+                let item: any[];
+
+                for (item of p.record)
+                    item[1] = this.root + item[1];
+            }
 
             return p;
         }));
