@@ -1,4 +1,4 @@
-import { requestObjectName } from './constants';
+import { appDetail, requestObjectName } from './constants';
 
 export function extractArgs(fn: Function) {
     let str = fn.toString(),
@@ -23,6 +23,6 @@ export function checkArgs(str: string | Function, skips: number) {
 
     return i === -1
         ? requestObjectName
-        : requestObjectName + ',this';
+        : requestObjectName + ',' + appDetail;
 }
 

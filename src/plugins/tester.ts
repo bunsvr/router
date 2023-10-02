@@ -1,11 +1,10 @@
-import Router, { buildFetch } from "../core/main";
+import Router from "../core/main";
 
 class ResponseStatus {
     constructor(public code: number, public text: string) { }
 }
 
-const nf = { status: 204 },
-    toTxT = (r: Response) => r.text(),
+const toTxT = (r: Response) => r.text(),
     toJSON = (r: Response) => r.json(),
     toBlob = (r: Response) => r.blob(),
     toForm = (r: Response) => r.formData(),
@@ -17,48 +16,31 @@ const nf = { status: 204 },
     responseIsOk = (r: Response) => r.ok;
 
 type Params = [url: string, init?: Omit<RequestInit, 'body'> & { body?: BodyInit | Dict<any> }];
-const base = 'http://a';
 
 export interface MockOptions {
     /**
      * Represent the log level 
      * `0`: No logging. This is the default value
      * `1`: Log only path 
-     * `2`: Log the fetch metadata and path 
-     * `3`: Log the result returned, the path and the app fetch metadata
      */
-    logLevel?: 0 | 1 | 2 | 3;
+    logLevel?: 0 | 1;
 }
 
 /**
  * Create a tester for the current router
  */
 export function mock(app: Router, opts: MockOptions = {}) {
-    const oldURILen = app.uriLen || null,
-        oldBase = app.base || null,
-        logLvl = opts.logLevel || 0;
-
-    // Modify the base to build a test fetch function
-    if (oldBase) app.base = base;
-    else app.uriLen = 8;
-
-    const { meta } = app;
-
-    if (oldBase) {
-        if (oldBase !== null) app.base = oldBase;
-        // Handle case when base does not exists
-        else delete app.base;
-    } else app.uriLen = oldURILen;
-
-    if (logLvl >= 2) {
-        console.info('Parameters name:', meta.params);
-        console.info('Parameters value:', meta.values);
-        console.info('Fetch function:', meta.body);
-    }
-
-    const fn = buildFetch(meta).bind(app);
+    app.listen();
+    const { logLevel: logLvl = 0 } = opts, base = app.details.base;
 
     return {
+        /**
+         * Create a WS client based on the path
+         */
+        ws(...args: ConstructorParameters<typeof WebSocket>) {
+            args[0] = base + args[0];
+            return new WebSocket(...args);
+        },
         /**
          * Mock the current fetch handler.
          *
@@ -66,9 +48,7 @@ export function mock(app: Router, opts: MockOptions = {}) {
          */
         async fetch(...args: Params): Promise<Response> {
             if (logLvl >= 1) console.info('Testing', '`' + args[0] + '`');
-
-            if (!args[0].startsWith('http'))
-                args[0] = base + args[0];
+            args[0] = base + args[0];
 
             // Automatically stringify the body if body is JSON
             if (args[1]?.body) {
@@ -79,17 +59,8 @@ export function mock(app: Router, opts: MockOptions = {}) {
                         args[1].body = JSON.stringify(b);
             }
 
-            // @ts-ignore
-            let res = fn(new Request(...args));
-
-            if (res instanceof Promise) res = await res;
-            if (res instanceof Response) {
-                if (logLvl >= 3) console.info('Returned', res);
-                return res;
-            }
-
-            if (logLvl >= 2) console.error('A response object is not returned!');
-            return new Response(null, nf);
+            // @ts-ignore Save microticks
+            return await fetch(new Request(...args));
         },
 
         /**
@@ -160,11 +131,6 @@ export function mock(app: Router, opts: MockOptions = {}) {
          */
         async buf(...args: Params): Promise<ArrayBuffer> {
             return this.fetch(...args).then(toBuffer);
-        },
-
-        /**
-         * Includes the fetch function metadatas
-         */
-        meta
+        }
     }
 }

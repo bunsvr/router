@@ -4,9 +4,8 @@ import {
     TLSWebSocketServeOptions, WebSocketServeOptions
 } from 'bun';
 import { jsonHeader } from './router/compiler/constants';
+import type Router from './main';
 
-function EmptyObject() { };
-EmptyObject.prototype = Object.create(null);
 const { stringify } = JSON;
 
 export const wrap = {
@@ -21,39 +20,15 @@ export const wrap = {
     /**
      * Send all info in ctx
      */
-    send: (d: ResponseBody, ctx: Context) => {
-        const opt = new EmptyObject();
-
-        if ('head' in ctx)
-            opt.headers = ctx.head;
-        if ('status' in ctx)
-            opt.status = ctx.status;
-        if ('statusText' in ctx)
-            opt.statusText = ctx.statusText;
-
-        return new Response('response' in ctx ? ctx.response : d, opt);
-    },
+    send: (d: ResponseBody, ctx: Context) => 'set' in ctx
+        ? new Response('body' in ctx.set ? ctx.set.body : d, ctx.set)
+        : new Response(d),
     /**
      * Send all info in ctx and the response as json
      */
-    sendJSON: (d: any, ctx: Context) => {
-        let opt: any;
-
-        if ('head' in ctx) {
-            ctx.head['Content-Type'] = 'application/json';
-            opt = { headers: ctx.head };
-        } else opt = {
-            headers: { 'Content-Type': 'application/json' }
-        };
-
-        if ('status' in ctx)
-            opt.status = ctx.status;
-        if ('statusText' in ctx)
-            opt.statusText = ctx.statusText;
-
-        // Validation for null
-        return new Response(stringify('response' in ctx ? ctx.response : d), opt);
-    },
+    sendJSON: (d: any, ctx: Context) => 'set' in ctx
+        ? new Response(stringify('body' in ctx.set ? ctx.set.body : d), ctx.set)
+        : new Response(stringify(d), jsonHeader),
 };
 
 type Check<T> = keyof T extends never ? undefined : T;
@@ -91,9 +66,9 @@ export interface WSContext<P extends string = string> {
      */
     ctx: Context<'none', P>;
     /**
-     * The current server
+     * The router meta
      */
-    server: Server;
+    meta: RouterMeta;
 }
 
 /**
@@ -140,23 +115,22 @@ export interface Context<D extends BodyParser = 'none', P extends string = strin
      */
     path: number;
     /**
+     * Use to set response
+     */
+    set: ContextSet;
+}
+
+export interface ContextSet extends ResponseInit {
+    /**
      * Set your custom heading here for response.
      *
      * This should be used with `guard` and `wrap` to add custom headers.
      */
-    head: ContextHeaders;
-    /**
-     * Set the response status code
-     */
-    status: number | bigint;
-    /**
-     * Set a custom status message
-     */
-    statusText: string;
+    headers?: ContextHeaders;
     /**
      * Set a response to be used or validate later
      */
-    response: any;
+    body?: any;
 }
 
 /**
@@ -175,11 +149,40 @@ export type ResponseBody = ReadableStream<any> | BlobPart | BlobPart[] | FormDat
 export interface Handler<
     T extends string = any,
     B extends BodyParser = any> extends RouteOptions {
-    /**
-     * @param request The current request
-     */
-    (ctx: Context<B, T>, server: Server): any;
+    (ctx: Context<B, T>, meta: RouterMeta): any;
 }
+
+export interface RouterMeta {
+    /**
+     * Whether the server is using HTTPS 
+     */
+    https: boolean;
+    /**
+     * The base URL 
+     */
+    base: string;
+    /**
+     * The base host 
+     */
+    host: string;
+    /**
+     * Whether the server is using default port 
+     */
+    defaultPort: boolean;
+    /**
+     * The debug server
+     */
+    server: Server;
+    /**
+     * The router 
+     */
+    router: Router;
+    /**
+     * Whether server is in dev mode
+     */
+    dev: boolean;
+}
+
 
 /**
  * Builtin body parser 
@@ -285,7 +288,7 @@ export interface RouteOptions {
 
 // Behave like a post middleware
 export interface Wrapper {
-    (response: any, ctx: Context, server: Server): any;
+    (response: any, ...args: Parameters<Handler>): any;
 
     // Private props for modifying at compile time
     callName?: string;

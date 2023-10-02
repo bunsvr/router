@@ -1,14 +1,14 @@
 import type { WebSocketHandler } from 'bun';
 import {
     BodyParser, FetchMeta, Handler, WSContext, ConcatPath, ServeOptions,
-    BodyHandler, ErrorHandler, RouteOptions, Wrapper, wrap
+    BodyHandler, ErrorHandler, RouteOptions, Wrapper, wrap, RouterMeta
 } from './types';
 import Radx from './router';
 import compileRouter from './router/compiler';
 import { convert, methodsLowerCase as methods } from './constants';
 import {
     requestObjectName, urlStartIndex, requestQueryIndex,
-    serverErrorHandler, cachedMethod, requestURL
+    serverErrorHandler, cachedMethod, requestURL, appDetail
 } from './router/compiler/constants';
 
 type HttpMethod = 'get' | 'post' | 'put' | 'delete' | 'connect' | 'options' | 'trace' | 'patch' | 'all' | 'guard' | 'reject';
@@ -140,7 +140,7 @@ export class Router {
     /**
      * Inject a variable into the fetch function scope
      */
-    inject(name: string, value: any, warning: boolean = false) {
+    inject(name: string, value: any, warning: boolean = true) {
         if (name.charCodeAt(0) === 95 && warning)
             console.warn('Name should not have prefix `_` to avoid collision with internal parameters!');
 
@@ -341,9 +341,12 @@ export class Router {
         if (this.injects) for (key in this.injects)
             res.store[key] = this.injects[key];
 
+        // Store the ref of details 
+        res.store[appDetail] = this.details;
+
         return {
             params: Object.keys(res.store),
-            body: `return function(${requestObjectName}){${getVarCreate() + getPathParser(this) + res.fn}}`,
+            body: `return ${requestObjectName}=>{${getVarCreate() + getPathParser(this) + res.fn}}`,
             values: Object.values(res.store)
         };
     }
@@ -362,18 +365,27 @@ export class Router {
      */
     listen(gc: boolean = true) {
         if (gc) Bun.gc(true);
-        const fetch = this.fetch, s = Bun.serve({
-            ...this,
-            fetch
-        });
+
+        const { fetch, ...rest } = this,
+            s = Bun.serve({ ...rest, fetch });
+
+        // Additional details
+        this.details.https = !!(this.tls || this.ca || this.key);
+        this.details.defaultPort = s.port === 80 || s.port === 443;
+        this.details.host = `${s.hostname + (this.details.defaultPort ? '' : ':' + s.port)}`;
+        this.details.base = `http${this.details.https ? 's' : ''}://${this.details.host}`;
+        this.details.dev = s.development;
+        this.details.server = s;
+        this.details.router = this;
 
         // Log additional info
-        console.info(`Started an HTTP server at http${this.tls || this.ca || this.key ? 's' : ''}://${s.hostname + (
-            s.port === 80 || s.port === 443 ? '' : ':' + s.port
-        )} in ${s.development ? 'development' : 'production'} mode`);
-
+        console.info(`Started an HTTP server at ${this.details.base} in ${s.development ? 'development' : 'production'} mode`);
         return s;
     }
+
+    // Only available when `listen()` is used.
+    // @ts-ignore
+    details: RouterMeta<this> = {};
 }
 
 export function macro<T extends string>(fn: Handler<T> | string | number | boolean | null | undefined | object): Handler {

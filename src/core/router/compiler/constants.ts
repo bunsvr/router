@@ -11,6 +11,7 @@ export const internalPrefix = '_',
     prevParamIndex = internalPrefix + 't',
     currentParamIndex = internalPrefix + 'e',
     nfHandler = internalPrefix + 'n',
+    appDetail = internalPrefix + 'a',
 
     // Request related
     requestObjectName = 'c',

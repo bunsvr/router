@@ -1,6 +1,6 @@
 import { HandlerDetails } from '../types';
 import { Handler } from '../../types';
-import { requestObjectName, wsPrefix } from './constants';
+import { appDetail, requestObjectName, wsPrefix } from './constants';
 
 /**
  * Return the literal for WS upgrade
@@ -8,7 +8,7 @@ import { requestObjectName, wsPrefix } from './constants';
 export function getWSHandler(fnIndex: number, handlers: HandlerDetails) {
     const name = wsPrefix + fnIndex;
     handlers[name] = handlers.__ws[fnIndex];
-    return `return this.upgrade(${requestObjectName},{data:{_:${name},ctx:${requestObjectName},server:this}});`;
+    return `return this.upgrade(${requestObjectName},{data:{_:${name},ctx:${requestObjectName},meta:${appDetail}}});`;
 }
 
 /**

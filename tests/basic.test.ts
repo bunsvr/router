@@ -24,10 +24,10 @@ const app = new Router()
 
     .get('/str/1', () => 'Hello')
     .get('/str/2', async () => 'Hi')
-    .get('/str/3', (_, server) => server.port)
+    .get('/str/3', (_, meta) => meta.server.port)
 
     .get('/str/4', c => {
-        c.status = 418;
+        c.set = { status: 418 };
         return 'I\'m a teapot';
     }, { wrap: 'send' })
 
@@ -38,7 +38,7 @@ const app = new Router()
     .use(400, (e, c) => new Response(c.url + ': ' + e, invalidBody));
 
 console.time('Build fetch');
-const tester = mock(app, { logLevel: 2 });
+const tester = mock(app, { logLevel: 1 });
 
 // Report process memory usage and build time
 console.log(process.memoryUsage());
