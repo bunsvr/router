@@ -1,7 +1,7 @@
 import type { WebSocketHandler } from 'bun';
 import {
-    BodyParser, FetchMeta, Handler, WSContext, ConcatPath, ServeOptions,
-    BodyHandler, ErrorHandler, RouteOptions, Wrapper, wrap, RouterMeta
+    RouterMethods, FetchMeta, Handler, WSContext, ServeOptions,
+    BodyHandler, ErrorHandler, Wrapper, wrap, RouterMeta, Plugin
 } from './types';
 import Radx from './router';
 import compileRouter from './router/compiler';
@@ -10,26 +10,6 @@ import {
     requestObjectName, urlStartIndex, requestQueryIndex,
     serverErrorHandler, cachedMethod, requestURL, appDetail
 } from './router/compiler/constants';
-
-type HttpMethod = 'get' | 'post' | 'put' | 'delete' | 'connect' | 'options' | 'trace' | 'patch' | 'all' | 'guard' | 'reject';
-export type RouterMethods<R extends string> = {
-    [K in HttpMethod]: <T extends string, O extends RouteOptions>(
-        path: T, handler: O extends { body: infer B }
-            ? (
-                B extends BodyParser
-                ? Handler<ConcatPath<R, T>, B>
-                : Handler<ConcatPath<R, T>>
-            ) : Handler<ConcatPath<R, T>>,
-        options?: O
-    ) => Router;
-};
-
-/**
- * Specific plugin for router
- */
-export interface Plugin<R = any> {
-    (app: Router): R | void | Promise<R | void>
-}
 
 export interface Router extends ServeOptions, RouterMethods<'/'> { };
 
@@ -346,7 +326,7 @@ export class Router {
 
         return {
             params: Object.keys(res.store),
-            body: `return ${requestObjectName}=>{${getVarCreate() + getPathParser(this) + res.fn}}`,
+            body: `return ${requestObjectName}=>{${varCreate + getPathParser(this) + res.fn}}`,
             values: Object.values(res.store)
         };
     }
@@ -411,9 +391,7 @@ function createWSHandler(name: string) {
     )();
 }
 
-function getVarCreate() {
-    return `var{${cachedMethod}}=${requestObjectName};`;
-}
+const varCreate = `var{${cachedMethod}}=${requestObjectName};`;
 
 function getPathParser(app: Router) {
     return (typeof app.base === 'string'

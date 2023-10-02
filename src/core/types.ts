@@ -295,3 +295,23 @@ export interface Wrapper {
     params?: string;
     hasParams?: boolean;
 }
+
+export type HttpMethod = 'get' | 'post' | 'put' | 'delete' | 'connect' | 'options' | 'trace' | 'patch' | 'all' | 'guard' | 'reject';
+export type RouterMethods<R extends string> = {
+    [K in HttpMethod]: <T extends string, O extends RouteOptions>(
+        path: T, handler: O extends { body: infer B }
+            ? (
+                B extends BodyParser
+                ? Handler<ConcatPath<R, T>, B>
+                : Handler<ConcatPath<R, T>>
+            ) : Handler<ConcatPath<R, T>>,
+        options?: O
+    ) => Router;
+};
+
+/**
+ * Specific plugin for router
+ */
+export interface Plugin<R = any> {
+    (app: Router): R | void | Promise<R | void>
+}
