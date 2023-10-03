@@ -1,4 +1,4 @@
-import type { BodyParser, Handler, RouterMeta, Context, ParserType } from "../..";
+import type { BodyParser, Handler, RouterMeta, Context, ParserType, Plugin } from "../..";
 import { Group } from "../group";
 import { requestObjectName } from "../../core/router/compiler/constants";
 import { checkArgs } from "../../core/router/compiler/resolveArgs";
@@ -7,6 +7,12 @@ import client from "./client";
 const badReq = { status: 400 };
 
 export namespace rpc {
+    export interface Router<T extends Dict<Procedure<any, any>>> {
+        infer: T;
+        plugin: Plugin,
+        group: Group
+    }
+
     export function router<T extends Dict<Procedure<any, any>>>(o: T, root: string = '/') {
         if (root.at(-1) !== '/') root += '/';
         const group = new Group;
@@ -28,9 +34,9 @@ export namespace rpc {
 
             // Pass in v for validator and f for the actual fn
             group.post(root + key, Function('v', 'f', 'h',
-                `return ${fnArgs}=>{`
-                + `if(v(${requestObjectName}.data)===null){${requestObjectName}.set=h;return null}`
-                + `return f(${handlerArgs})}`
+                `return ${fnArgs}=>`
+                + `v(${requestObjectName}.data)===null?null`
+                + `:f(${handlerArgs})`
             )(vld, fn, badReq), { body: 'json', wrap: 'sendJSON' });
         }
 
@@ -92,7 +98,7 @@ export namespace rpc {
     /**
      * Create a RPC client
      */
-    export declare function client<T extends Dict<Procedure<any, any>>>(root: string): Infer<T>;
+    export declare function client<T extends Router<any>>(root: string): Infer<T['infer']>;
 }
 
 rpc.client = client;

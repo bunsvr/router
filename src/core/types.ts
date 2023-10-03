@@ -6,7 +6,7 @@ import {
 import { jsonHeader } from './router/compiler/constants';
 import type Router from './main';
 
-const { stringify } = JSON;
+const { stringify } = JSON, badReq = { status: 400 };
 
 export const wrap = {
     /**
@@ -26,11 +26,12 @@ export const wrap = {
     /**
      * Send all info in ctx and the response as json
      */
-    sendJSON: (d: any, ctx: Context) => 'set' in ctx
-        ? new Response('body' in ctx.set ? stringify(ctx.set.body) : (
-            d === null ? null : stringify(d)
-        ), ctx.set)
-        : new Response(d === null ? null : stringify(d), jsonHeader),
+    sendJSON: (d: any, ctx: Context) => d === null
+        ? new Response(null, badReq)
+        : ('set' in ctx
+            ? new Response('body' in ctx.set ? stringify(ctx.set.body) : stringify(d), ctx.set)
+            : new Response(stringify(d), jsonHeader)
+        ),
 };
 
 type Check<T> = keyof T extends never ? undefined : T;

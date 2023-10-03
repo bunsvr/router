@@ -10,12 +10,10 @@ const sv = rpc.router({
     .set('port', 3001)
     .listen();
 
-const client = rpc.client<typeof sv.infer>(app.details.base);
+const client = rpc.client<typeof sv>(app.details.base);
 
 test('RPC route', async () => {
     expect(
-        await client.greeting({ name: 'Reve' })
-    ).toEqual({
-        message: 'Hi Reve'
-    });
+        await client.greeting({ name: 'reve' })
+    ).toEqual({ message: 'Hi reve' });
 });
