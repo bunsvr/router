@@ -261,6 +261,14 @@ export class Router {
     }
 
     /**
+     * Set a property
+     */
+    set<K extends keyof this>(v: K, value: this[K]) {
+        this[v] = value;
+        return this;
+    }
+
+    /**
      * Add plugins 
      */
     plug(...plugins: (Plugin | {
@@ -363,12 +371,12 @@ export class Router {
 
         // Log additional info
         console.info(`Started an HTTP server at ${this.details.base} in ${s.development ? 'development' : 'production'} mode`);
-        return s;
+        return this;
     }
 
     // Only available when `listen()` is used.
     // @ts-ignore
-    details: RouterMeta<this> = {};
+    details: RouterMeta = {};
 }
 
 export function macro<T extends string>(fn: Handler<T> | string | number | boolean | null | undefined | object): Handler {
@@ -409,6 +417,15 @@ function getPathParser(app: Router) {
  */
 export function buildFetch(meta: FetchMeta): (req: Request) => any {
     return Function(...meta.params, meta.body)(...meta.values);
+}
+
+/**
+ * Shorthand
+ */
+export function router(...plugins: (Plugin | {
+    plugin: Plugin
+})[]) {
+    return new Router().plug(...plugins);
 }
 
 export default Router;

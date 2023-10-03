@@ -6,6 +6,7 @@ const predefinedBody = { hi: 'there' }, invalidBody = { status: 400 };
 
 // Create the function;
 const app = new Router()
+    .set('port', 3000)
     .get('/', macro('Hi'))
 
     .get('/id/:id', req => new Response(req.params.id))

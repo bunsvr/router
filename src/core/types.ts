@@ -27,8 +27,10 @@ export const wrap = {
      * Send all info in ctx and the response as json
      */
     sendJSON: (d: any, ctx: Context) => 'set' in ctx
-        ? new Response(stringify('body' in ctx.set ? ctx.set.body : d), ctx.set)
-        : new Response(stringify(d), jsonHeader),
+        ? new Response('body' in ctx.set ? stringify(ctx.set.body) : (
+            d === null ? null : stringify(d)
+        ), ctx.set)
+        : new Response(d === null ? null : stringify(d), jsonHeader),
 };
 
 type Check<T> = keyof T extends never ? undefined : T;
@@ -47,7 +49,7 @@ type ExtractParams<T extends string> = T extends `${infer Segment}/${infer Rest}
  */
 export type Params<P extends string, E extends object = {}> = Check<ExtractParams<P> & E>;
 
-type ParserType<B extends BodyParser> = B extends 'text' ? string : (
+export type ParserType<B extends BodyParser> = B extends 'text' ? string : (
     B extends 'json' ? Record<string | number, any> : (
         B extends 'form' ? FormData : (
             B extends 'buffer' ? ArrayBuffer : (
@@ -96,11 +98,11 @@ export interface ContextHeaders extends CommonHeaders, Dict<string> { };
 /**
  * Represent a request context
  */
-export interface Context<D extends BodyParser = 'none', P extends string = string> extends Request {
+export interface Context<D = any, P extends string = string> extends Request {
     /**
      * Parsed request body
      */
-    data: ParserType<D>;
+    data: D;
     /**
      * Parsed request parameter with additional properties if specified
      */
@@ -146,10 +148,8 @@ export type ResponseBody = ReadableStream<any> | BlobPart | BlobPart[] | FormDat
 /**
  * A route handler function
  */
-export interface Handler<
-    T extends string = any,
-    B extends BodyParser = any> extends RouteOptions {
-    (ctx: Context<B, T>, meta: RouterMeta): any;
+export interface Handler<T extends string = any, B extends BodyParser = any> extends RouteOptions {
+    (ctx: Context<ParserType<B>, T>, meta: RouterMeta): any;
 }
 
 export interface RouterMeta {
@@ -158,7 +158,7 @@ export interface RouterMeta {
      */
     https: boolean;
     /**
-     * The base URL 
+     * The base URL with protocol and base host
      */
     base: string;
     /**
