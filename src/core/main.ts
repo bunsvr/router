@@ -431,3 +431,6 @@ export function router(...plugins: (Plugin | {
 export default Router;
 export { Radx };
 export * from './types';
+
+// Export constants for AoT compiling
+export * from './router/exports';

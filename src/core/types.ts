@@ -6,7 +6,16 @@ import {
 import { jsonHeader } from './router/compiler/constants';
 import type Router from './main';
 
-const { stringify } = JSON, badReq = { status: 400 };
+const { stringify } = JSON, badReq = { status: 400 }, jsonSetHeaders = { 'Content-Type': 'application/json' };
+
+function modify(set: ContextSet) {
+    if ('headers' in set) {
+        if (!('Content-Type' in set.headers))
+            set.headers['Content-Type'] = 'application/json';
+    } else set.headers = jsonSetHeaders;
+
+    return set;
+}
 
 export const wrap = {
     /**
@@ -21,7 +30,7 @@ export const wrap = {
      * Send all info in ctx
      */
     send: (d: ResponseBody, ctx: Context) => 'set' in ctx
-        ? new Response('body' in ctx.set ? ctx.set.body : d, ctx.set)
+        ? new Response(d, ctx.set)
         : new Response(d),
     /**
      * Send all info in ctx and the response as json
@@ -29,7 +38,7 @@ export const wrap = {
     sendJSON: (d: any, ctx: Context) => d === null
         ? new Response(null, badReq)
         : ('set' in ctx
-            ? new Response('body' in ctx.set ? stringify(ctx.set.body) : stringify(d), ctx.set)
+            ? new Response(stringify(d), modify(ctx.set))
             : new Response(stringify(d), jsonHeader)
         ),
 };
@@ -130,11 +139,16 @@ export interface ContextSet extends ResponseInit {
      * This should be used with `guard` and `wrap` to add custom headers.
      */
     headers?: ContextHeaders;
-    /**
-     * Set a response to be used or validate later
-     */
-    body?: any;
 }
+
+/**
+ * Create a context set object
+ */
+export function ContextSet() { }
+ContextSet.prototype = Object.create(null);
+ContextSet.prototype.headers = Object.create(null);
+ContextSet.prototype.status = null;
+ContextSet.prototype.statusText = null;
 
 /**
  * Blob part

@@ -1,43 +1,77 @@
-import type { BodyParser, Handler, RouterMeta, Context, ParserType, Plugin } from "../..";
+import type { BodyParser, Handler, RouterMeta, Context, ParserType, Plugin, wrap, Wrapper } from "../..";
 import { Group } from "../group";
-import { requestObjectName } from "../../core/router/compiler/constants";
+import { compiler } from "../../core/main";
 import { checkArgs } from "../../core/router/compiler/resolveArgs";
 import client from "./client";
 
 const badReq = { status: 400 };
 
 export namespace rpc {
-    export interface Router<T extends Dict<Procedure<any, any>>> {
+    export interface RouterProps<T extends Dict<Procedure>> {
         infer: T;
         plugin: Plugin,
         group: Group
     }
 
-    export function router<T extends Dict<Procedure<any, any>>>(o: T, root: string = '/') {
+    /**
+     * A procedure handler
+     */
+    export interface ProcHandler<B, R> {
+        (ctx: Context<B>, meta: RouterMeta): R;
+    }
+
+    /**
+     * Infer type for RPC client
+     */
+    export type Infer<T extends Dict<Procedure>> = {
+        [K in keyof T]: {
+            format(format: T[K]['format']): (body: T[K]['validatorReturn']) => Promise<T[K]['fnReturnType']>;
+            (body: T[K]['validatorReturn']): Promise<T[K]['fnReturnType']>;
+        }
+    }
+
+
+    /**
+    * A procedure validator
+    */
+    export interface Validator<D, T> {
+        (d: D): T | null;
+    }
+
+    // Create a RPC router
+    export function route<T extends Dict<Procedure>>(o: T, root: string = '/') {
         if (root.at(-1) !== '/') root += '/';
         const group = new Group;
 
-        let key: string, handlerArgs: string,
+        let key: string, handlerArgs: string, routeOpts: any,
             fnArgs: string, vld: any, fn: any;
 
         for (key in o) {
             vld = o[key].validator;
             fn = o[key].fn;
+            routeOpts = {
+                body: o[key].format,
+                wrap: o[key].wrapper
+            };
 
             // Init args for optimizations
             handlerArgs = checkArgs(fn, 0);
 
             // The handler args
-            fnArgs = handlerArgs === '' ? requestObjectName : (
+            fnArgs = handlerArgs === '' ? compiler.constants.requestObjectName : (
                 handlerArgs.includes(',') ? '(' + handlerArgs + ')' : handlerArgs
             );
 
-            // Pass in v for validator and f for the actual fn
-            group.post(root + key, Function('v', 'f', 'h',
-                `return ${fnArgs}=>`
-                + `v(${requestObjectName}.data)===null?null`
-                + `:f(${handlerArgs})`
-            )(vld, fn, badReq), { body: 'json', wrap: 'sendJSON' });
+            key = root + key;
+            if (vld)
+                // Pass in v for validator and f for the actual fn
+                group.post(key, Function('v', 'f', 'h',
+                    `return ${fnArgs}=>`
+                    + `v(${compiler.constants.requestObjectName}.data)===null?null`
+                    + `:f(${handlerArgs})`
+                )(vld, fn, badReq), routeOpts);
+            else
+                group.post(key, fn, routeOpts);
         }
 
         return {
@@ -48,57 +82,56 @@ export namespace rpc {
     }
 
     /**
-     * A procedure validator
+     * Create a router procedure without a validator. You need to modify `c.data` in 
+     * the validator to match the type (if needed).
      */
-    export interface Validator<D, T> {
-        (d: D): T | null;
-    }
+    export function proc<D extends BodyParser>(format: D): Procedure<D, ParserType<D>>;
 
     /**
      * Create a router procedure. You need to modify `c.data` in 
      * the validator to match the type (if needed).
      */
-    export function proc<D extends BodyParser, T>(v: Validator<ParserType<D>, T>) {
-        return new Procedure(v);
+    export function proc<D extends BodyParser, T>(format: D, v: Validator<ParserType<D>, T>): Procedure<D, T>;
+    export function proc(format: any, v?: any) {
+        return new Procedure(format, v);
     }
 
-    /**
-     * A procedure handler
-     */
-    export interface ProcHandler<B, R> {
-        (ctx: Context<B>, meta: RouterMeta): R;
-    }
-
-    export class Procedure<T, R> {
+    export class Procedure<Format extends BodyParser = any, VldReturn = any, FnReturn = any> {
+        // Support for custom response
         public fn: Handler;
+        public wrapper: keyof typeof wrap | Wrapper = 'sendJSON';
 
-        // For infer types
-        public fnReturnType: R;
-        public validatorReturn: T;
+        // Type infer
+        public fnReturnType: FnReturn;
+        public validatorReturn: VldReturn;
 
-        constructor(public readonly validator: Validator<ParserType<'json'>, T>) { }
+        constructor(
+            public format: Format,
+            public validator?: Validator<Format, VldReturn>
+        ) { }
+
+        /**
+         * Wrap with a response wrapper
+         */
+        wrap(wrapper: keyof typeof wrap | Wrapper = 'default') {
+            this.wrapper = wrapper;
+            return this;
+        }
 
         /**
          * Add a handler to the procedure
          */
-        use<Q>(t: ProcHandler<T, Q>) {
+        use<Q>(t: ProcHandler<VldReturn, Q>) {
             this.fn = t;
             // @ts-ignore
-            return this as Procedure<T, Q>;
+            return this as Procedure<Format, VldReturn, Q>;
         }
-    }
-
-    /**
-     * Infer type for RPC client
-     */
-    export type Infer<T extends Dict<Procedure<any, any>>> = {
-        [K in keyof T]: (body: T[K]["validatorReturn"]) => Promise<T[K]["fnReturnType"]>;
     }
 
     /**
      * Create a RPC client
      */
-    export declare function client<T extends Router<any>>(root: string): Infer<T['infer']>;
+    export declare function client<T extends RouterProps<any>>(root: string): Infer<T['infer']>;
 }
 
 rpc.client = client;
