@@ -10,7 +10,7 @@ Bun.build({
     format: 'esm',
     target: 'bun',
     outdir: '.',
-    //minify: true,
+    minify: true,
     entrypoints: ['./src/index.ts']
 });
 
