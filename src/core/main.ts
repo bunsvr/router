@@ -416,12 +416,6 @@ function optimize() {
     Request.prototype.path = 0;
     // @ts-ignore
     Request.prototype.query = 0;
-    // Assume everytime path and query are numbers 
-
-    // @ts-ignore
-    Request.prototype.data = null;
-    // @ts-ignore
-    Request.prototype.params = null;
 }
 
 /**
