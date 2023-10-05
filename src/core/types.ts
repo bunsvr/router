@@ -43,7 +43,6 @@ export const wrap = {
         ),
 };
 
-type Check<T> = keyof T extends never ? undefined : T;
 type ExtractParams<T extends string> = T extends `${infer Segment}/${infer Rest}`
     ? (Segment extends `:${infer Param}`
         ? (Rest extends `*` ? { [K in Param]: string } : { [K in Param]: string } & ExtractParams<Rest>)
@@ -57,7 +56,7 @@ type ExtractParams<T extends string> = T extends `${infer Segment}/${infer Rest}
 /**
  * Infer params from string
  */
-export type Params<P extends string, E extends object = {}> = Check<ExtractParams<P> & E>;
+export type Params<P extends string, E extends object = {}> = ExtractParams<P> & E;
 
 export type ParserType<B extends BodyParser> = B extends 'text' ? string : (
     B extends 'json' ? Record<string | number, any> : (
@@ -146,7 +145,7 @@ export interface ContextSet extends ResponseInit {
  */
 export function ContextSet() { }
 ContextSet.prototype = Object.create(null);
-ContextSet.prototype.headers = Object.create(null);
+ContextSet.prototype.headers = null;
 ContextSet.prototype.status = null;
 ContextSet.prototype.statusText = null;
 
@@ -262,6 +261,11 @@ export interface ServeOptions extends Partial<AllOptions> {
      * Use this instead of `base` to work with subdomain
      */
     uriLen?: number;
+
+    /**
+     * Set to `false` to disable optimizer
+     */
+    requestOptimization?: boolean;
 }
 
 /**
@@ -299,7 +303,19 @@ export interface RouteOptions {
      * Whether to chain wrap with `then`
      */
     chain?: boolean;
+
+    /**
+     * A guard function for the current pathname
+     */
+    guard?: Handler;
+
+    /**
+     * A reject handler
+     */
+    reject?: Handler;
 }
+
+export type ResponseWrap = keyof typeof wrap | Wrapper;
 
 // Behave like a post middleware
 export interface Wrapper {
@@ -329,4 +345,8 @@ export type RouterMethods<R extends string> = {
  */
 export interface Plugin {
     (app: Router): Router | void | Promise<Router | void>
+}
+
+export type RouterPlugin = Plugin | {
+    plugin: Plugin;
 }

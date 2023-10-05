@@ -1,11 +1,10 @@
 import Radx from '..';
 import {
     invalidBodyHandler, requestQueryIndex,
-    nfHandler, notFoundHeader, badRequestHandler, requestURL
+    nfHandler, notFoundHeader, badRequestHandler, requestURL, cachedMethod, requestObjectName
 } from './constants';
 
 import { HandlerDetails } from '../types';
-
 import { checkArgs } from "./resolveArgs";
 import { compileNode } from './node';
 
@@ -70,6 +69,6 @@ export default function compileRouter(
 
     return {
         store: handlersRec,
-        fn: composedBody
+        fn: `var{${cachedMethod}}=${requestObjectName};` + composedBody
     };
 }

@@ -1,27 +1,27 @@
 /// <reference types='bun-types' />
 import { test, expect } from 'bun:test';
-import { Router, macro, mock } from '..';
+import { macro, mock, router } from '..';
 
 const predefinedBody = { hi: 'there' }, invalidBody = { status: 400 };
 
 // Create the function;
-const app = new Router()
+const app = router()
     .set('port', 3000)
     .get('/', macro('Hi'))
 
-    .get('/id/:id', req => new Response(req.params.id))
-    .get('/:name/dashboard/:cat', req => new Response(req.params.name + ' ' + req.params.cat))
+    .get('/id/:id', c => new Response(c.params.id))
+    .get('/:name/dashboard/:cat', c => new Response(c.params.name + ' ' + c.params.cat))
 
-    .post('/json', ctx => Response.json(ctx.data), { body: 'json' })
-    .get('/json', () => Response.json(predefinedBody))
+    .post('/json', c => Response.json(c.data), { body: 'json' })
+    .all('/json', () => Response.json(predefinedBody))
 
     .get('/api/v1/hi', () => 'Hi')
 
-    .guard('/api/v1', async req => req.method === 'GET' ? null : true)
+    .guard('/api/v1', async c => c.method === 'GET' ? null : true)
     .reject('/api/v1', () => 'No enter!')
     .wrap('/api/v1')
 
-    .all('/json/*', req => new Response(req.params['*']))
+    .all('/json/*', c => new Response(c.params['*']))
 
     .get('/str/1', () => 'Hello')
     .get('/str/2', async () => 'Hi')
@@ -38,12 +38,15 @@ const app = new Router()
     .use(404)
     .use(400, (e, c) => new Response(c.url + ': ' + e, invalidBody));
 
+// Tracking time
 console.time('Build fetch');
-const tester = mock(app, { logLevel: 1 });
+console.log(app.meta);
 
-// Report process memory usage and build time
-console.log(process.memoryUsage());
+// Report process memory usage and build time 
 console.timeEnd('Build fetch');
+
+const tester = mock(app, { logLevel: 1 });
+console.log(process.memoryUsage());
 
 // GET / should returns 'Hi'
 test('GET /', async () => {

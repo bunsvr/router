@@ -58,7 +58,7 @@ export function compileNode(
 
         // Resolve guard
         if (node.store.GUARD) {
-            res = guardCheck(handlers, node.store, wrapper);
+            res = guardCheck(handlers, node.store.GUARD, node.store.REJECT, wrapper);
             // Add to queue the needed string 
             queue += res[1];
             // Add to str the function body

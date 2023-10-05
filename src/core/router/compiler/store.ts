@@ -70,7 +70,7 @@ export function storeCheck(fn: Handler, handlers: HandlerDetails, wrapper: Wrapp
     } else if (fn.wrap === false)
         wrapper = null;
 
-    let str = 'return ',
+    let str = 'return ', queue = ';',
         methodName = handlerPrefix + handlers.__index,
         methodCall = methodName + `(${checkArgs(fn, 0)})`;
 
@@ -96,7 +96,6 @@ export function storeCheck(fn: Handler, handlers: HandlerDetails, wrapper: Wrapp
             + `return ${methodCall}})`;
 
         if (wrapper) str += wrapAsync(wrapper);
-
         str += handlers.__catchBody;
     } else {
         // Wrap response normally
@@ -106,6 +105,6 @@ export function storeCheck(fn: Handler, handlers: HandlerDetails, wrapper: Wrapp
         str += methodCall;
     }
 
-    return str + ';';
+    return str + queue;
 }
 

@@ -1,14 +1,15 @@
 import { type WebSocketHandler } from 'bun';
-import {
+import type {
     RouterMethods, FetchMeta, Handler, WSContext, ServeOptions,
-    BodyHandler, ErrorHandler, Wrapper, wrap, RouterMeta, Plugin
+    BodyHandler, ErrorHandler, RouterMeta, Plugin, RouterPlugin, ResponseWrap
 } from './types';
+import { wrap } from './types';
 import Radx from './router';
 import compileRouter from './router/compiler';
 import { convert, methodsLowerCase as methods } from './constants';
 import {
     requestObjectName, urlStartIndex, requestQueryIndex,
-    serverErrorHandler, cachedMethod, requestURL, appDetail
+    serverErrorHandler, requestURL, appDetail
 } from './router/compiler/constants';
 
 export interface Router extends ServeOptions, RouterMethods<'/'> { };
@@ -55,6 +56,10 @@ export class Router {
 
         if (!('hostname' in this))
             this.hostname = '127.0.0.1';
+
+        // Enable optimizer
+        if (this.requestOptimization !== false)
+            optimize();
     }
 
     /**
@@ -63,21 +68,11 @@ export class Router {
     wrap(path: string): this;
 
     /**
-     * Add a response wrapper for a group of subroutes
-     */
-    wrap(path: string, type: keyof typeof wrap): this;
-
-    /**
-     * Add a custom response wrapper for a group of subroutes
-     */
-    wrap(path: string, fn: Wrapper): this;
-
-    /**
      * Add a response wrapper for subroutes of path.
      *
      * Wrap will not wrap reject responses
      */
-    wrap(path: string, handler: Wrapper | keyof typeof wrap = 'default') {
+    wrap(path: string, handler: ResponseWrap = 'default') {
         if (typeof handler === 'string')
             handler = wrap[handler];
 
@@ -246,9 +241,7 @@ export class Router {
      */
     readonly plugins: Promise<any>[] = [];
 
-    private plugOne(plugin: Plugin | {
-        plugin: Plugin
-    }) {
+    private plugOne(plugin: RouterPlugin) {
         // Ignore null and undefined plugins
         if (!plugin) return;
 
@@ -271,9 +264,7 @@ export class Router {
     /**
      * Add plugins 
      */
-    plug(...plugins: (Plugin | {
-        plugin: Plugin
-    })[]) {
+    plug(...plugins: RouterPlugin[]) {
         let p: any;
         for (p of plugins) this.plugOne(p);
         return this;
@@ -337,7 +328,7 @@ export class Router {
 
         return {
             params: Object.keys(res.store),
-            body: `return ${requestObjectName}=>{${varCreate + getPathParser(this) + res.fn}}`,
+            body: `return ${requestObjectName}=>{${getPathParser(this) + res.fn}}`,
             values: Object.values(res.store)
         };
     }
@@ -402,8 +393,6 @@ function createWSHandler(name: string) {
     )();
 }
 
-const varCreate = `var{${cachedMethod}}=${requestObjectName};`;
-
 function getPathParser(app: Router) {
     return (typeof app.base === 'string'
         ? '' : `${urlStartIndex}=${requestURL}.indexOf('/',${app.uriLen ?? 12})+1;`
@@ -420,7 +409,23 @@ export function buildFetch(meta: FetchMeta): (req: Request) => any {
 }
 
 /**
- * Shorthand
+ * Will work if Request proto is modifiable
+ */
+export function optimize() {
+    // @ts-ignore
+    Request.prototype.path = 0;
+    // @ts-ignore
+    Request.prototype.query = 0;
+    // Assume everytime path and query are numbers 
+
+    // @ts-ignore
+    Request.prototype.data = null;
+    // @ts-ignore
+    Request.prototype.params = null;
+}
+
+/**
+ * Shorthand for `new Router().plug`
  */
 export function router(...plugins: (Plugin | {
     plugin: Plugin
@@ -429,8 +434,8 @@ export function router(...plugins: (Plugin | {
 }
 
 export default Router;
-export { Radx };
-export * from './types';
+export { wrap };
+export type * from './types';
 
 // Export constants for AoT compiling
 export * from './router/exports';
