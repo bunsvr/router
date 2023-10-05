@@ -263,7 +263,9 @@ export interface ServeOptions extends Partial<AllOptions> {
     uriLen?: number;
 
     /**
-     * Set to `false` to disable optimizer
+     * If the value is not set or set to any other value than `false`, 
+     * this will change the prototype of `Request` to include properties 
+     * frequently used by Stric, which improves performance
      */
     requestOptimization?: boolean;
 }

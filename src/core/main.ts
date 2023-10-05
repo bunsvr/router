@@ -1,7 +1,7 @@
 import { type WebSocketHandler } from 'bun';
 import type {
     RouterMethods, FetchMeta, Handler, WSContext, ServeOptions,
-    BodyHandler, ErrorHandler, RouterMeta, Plugin, RouterPlugin, ResponseWrap
+    BodyHandler, ErrorHandler, RouterMeta, RouterPlugin, ResponseWrap
 } from './types';
 import { wrap } from './types';
 import Radx from './router';
@@ -398,7 +398,7 @@ function getPathParser(app: Router) {
         ? '' : `${urlStartIndex}=${requestURL}.indexOf('/',${app.uriLen ?? 12})+1;`
     ) + `${requestQueryIndex}=${requestURL}.indexOf('?',${typeof app.base === 'string'
         ? app.base.length + 1 : urlStartIndex
-    });` + `if(${requestQueryIndex}===-1)${requestQueryIndex}=${requestURL}.length;`;
+    });`;
 }
 
 /**
@@ -411,7 +411,7 @@ export function buildFetch(meta: FetchMeta): (req: Request) => any {
 /**
  * Will work if Request proto is modifiable
  */
-export function optimize() {
+function optimize() {
     // @ts-ignore
     Request.prototype.path = 0;
     // @ts-ignore
@@ -427,9 +427,7 @@ export function optimize() {
 /**
  * Shorthand for `new Router().plug`
  */
-export function router(...plugins: (Plugin | {
-    plugin: Plugin
-})[]) {
+export function router(...plugins: RouterPlugin[]) {
     return new Router().plug(...plugins);
 }
 

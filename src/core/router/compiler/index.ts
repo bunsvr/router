@@ -69,6 +69,8 @@ export default function compileRouter(
 
     return {
         store: handlersRec,
-        fn: `var{${cachedMethod}}=${requestObjectName};` + composedBody
+        fn: `var{${cachedMethod}}=${requestObjectName};`
+            + `if(${requestQueryIndex}===-1)${requestQueryIndex}=${requestURL}.length;`
+            + composedBody
     };
 }
