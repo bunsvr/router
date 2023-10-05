@@ -413,9 +413,9 @@ export function buildFetch(meta: FetchMeta): (req: Request) => any {
  */
 function optimize() {
     // @ts-ignore
-    Request.prototype.path = 0;
+    Request.prototype.path = undefined;
     // @ts-ignore
-    Request.prototype.query = 0;
+    Request.prototype.query = undefined;
 }
 
 /**
