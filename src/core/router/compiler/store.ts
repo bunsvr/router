@@ -70,9 +70,9 @@ export function storeCheck(fn: Handler, handlers: HandlerDetails, wrapper: Wrapp
     } else if (fn.wrap === false)
         wrapper = null;
 
-    let str = 'return ', queue = ';',
-        methodName = handlerPrefix + handlers.__index,
-        methodCall = methodName + `(${checkArgs(fn, 0)})`;
+    let methodName = handlerPrefix + handlers.__index,
+        methodCall = `${methodName}(${checkArgs(fn, 0)})`,
+        str = '';
 
     // Add to handlers
     handlers[methodName] = fn;
@@ -80,21 +80,21 @@ export function storeCheck(fn: Handler, handlers: HandlerDetails, wrapper: Wrapp
 
     // Check body parser
     if (fn.body && fn.body !== 'none') {
-        str += requestObjectPrefix;
+        str += 'return ';
 
         switch (fn.body) {
-            case 'text': str += `text`; break;
-            case 'json': str += `json`; break;
-            case 'form': str += 'formData'; break;
-            case 'blob': str += 'blob'; break;
-            case 'buffer': str += 'arrayBuffer'; break;
+            case 'text': str += requestObjectPrefix + 'text'; break;
+            case 'json': str += requestObjectPrefix + 'json'; break;
+            case 'form': str += requestObjectPrefix + 'formData'; break;
+            case 'blob': str += requestObjectPrefix + 'blob'; break;
+            case 'buffer': str += requestObjectPrefix + 'arrayBuffer'; break;
             default: throw new Error('Invalid body parser specified: ' + fn.body);
         }
 
-        // This wrap when response is trully async
-        str += `().then(_=>{${requestParsedBody}=_;`
-            + `return ${methodCall}})`;
+        // This wrap when response is truly async
+        str += `().then(_=>{${requestParsedBody}=_;return ${methodCall}})`;
 
+        // Can't put guards here cuz it will break response wrappers
         if (wrapper) str += wrapAsync(wrapper);
         str += handlers.__catchBody;
     } else {
@@ -102,9 +102,8 @@ export function storeCheck(fn: Handler, handlers: HandlerDetails, wrapper: Wrapp
         if (wrapper)
             methodCall = checkWrap(fn, wrapper, methodCall);
 
-        str += methodCall;
+        str += 'return ' + methodCall;
     }
 
-    return str + queue;
+    return str + ';';
 }
-

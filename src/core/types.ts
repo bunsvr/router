@@ -302,19 +302,9 @@ export interface RouteOptions {
     wrap?: Wrapper | keyof typeof wrap | true | false;
 
     /**
-     * Whether to chain wrap with `then`
+     * Whether to force chain wrap with `then`
      */
     chain?: boolean;
-
-    /**
-     * A guard function for the current pathname
-     */
-    guard?: Handler;
-
-    /**
-     * A reject handler
-     */
-    reject?: Handler;
 }
 
 export type ResponseWrap = keyof typeof wrap | Wrapper;

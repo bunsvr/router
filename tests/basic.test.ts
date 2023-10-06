@@ -1,6 +1,6 @@
 /// <reference types='bun-types' />
 import { test, expect } from 'bun:test';
-import { macro, mock, router } from '..';
+import { macro, mock, router, wrap } from '..';
 
 const predefinedBody = { hi: 'there' }, invalidBody = { status: 400 };
 
@@ -12,8 +12,8 @@ const app = router()
     .get('/id/:id', c => new Response(c.params.id))
     .get('/:name/dashboard/:cat', c => new Response(c.params.name + ' ' + c.params.cat))
 
-    .post('/json', c => Response.json(c.data), { body: 'json' })
-    .all('/json', () => Response.json(predefinedBody))
+    .post('/json', c => wrap.json(c.data), { body: 'json' })
+    .all('/json', () => wrap.json(predefinedBody))
 
     .get('/api/v1/hi', () => 'Hi')
 
