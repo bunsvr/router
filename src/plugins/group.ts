@@ -46,7 +46,7 @@ export class Group<Root extends string = '/'> {
      * @param root 
      */
     // @ts-ignore
-    constructor(public readonly root: Root = '/') {
+    constructor(public root: Root = '/') {
         if (root !== '/' && root.endsWith('/'))
             // @ts-ignore
             root = root.slice(0, -1);
@@ -106,9 +106,13 @@ export class Group<Root extends string = '/'> {
         let item: any;
 
         for (item of this.plugins) {
-            if (item instanceof Group && this.root !== '/')
-                // @ts-ignore
-                item.root = this.root + item.root;
+            if (item instanceof Group) {
+                if (item.root === '/')
+                    item.root = this.root;
+                else if (this.root !== '/')
+                    // @ts-ignore
+                    item.root = this.root + item.root;
+            }
 
             app.plug(item);
         }
