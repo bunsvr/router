@@ -420,6 +420,8 @@ function optimize() {
     Request.prototype.params = null;
     // @ts-ignore
     Request.prototype.data = null;
+    // @ts-ignore
+    Request.prototype.set = null;
 }
 
 /**
