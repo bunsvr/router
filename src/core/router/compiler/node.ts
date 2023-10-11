@@ -121,10 +121,10 @@ export function compileNode(
             nextSlash = `${handlers.__pathStr}.indexOf('/',${indexFrom})`;
 
         if (!res)
-            str += `${backupParamIndexExists ? '' : 'let '}${prevParamIndex}=${currentPathLen};`;
+            str += `${backupParamIndexExists ? '' : 'var '}${prevParamIndex}=${currentPathLen};`;
 
         if (node.params.inert !== null)
-            str += `${hasParams ? '' : 'let '}${currentParamIndex}=${nextSlash};`;
+            str += `${hasParams ? '' : 'var '}${currentParamIndex}=${nextSlash};`;
 
         // End index here
         if (node.params.store !== null) {

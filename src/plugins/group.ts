@@ -1,22 +1,38 @@
-import { Router, RouterMethods, wrap } from "../core/main";
-import type { ConcatPath, Handler, ResponseWrap, RouterPlugin, WSContext } from "../core/types";
+import { Router, wrap } from "../core/main";
+import type {
+    ConcatPath, Handler, ResponseWrap, RouterPlugin,
+    WSContext, HttpMethod, BodyParser, RouteOptions
+} from "../core/types";
 import { convert, methodsLowerCase as methods } from "../core/constants";
 import type { WebSocketHandler } from "bun";
 
-export interface Group<R extends string> extends RouterMethods<R> { }
+export type GroupMethods<Root extends string> = {
+    [K in HttpMethod]: <T extends string, O extends RouteOptions>(
+        path: T, handler: O extends { body: infer B }
+            ? (
+                B extends BodyParser
+                ? Handler<ConcatPath<Root, T>, B>
+                : Handler<ConcatPath<Root, T>>
+            ) : Handler<ConcatPath<Root, T>>,
+        options?: O
+    ) => Group<Root>;
+};
+
+export interface Group<Root extends string> extends GroupMethods<Root> { }
 
 /**
  * A routes group. Can be used as a plugin
  */
-export class Group<R extends string = '/'> {
-    private record: any[][] = [];
-    private wsRecord: any[][] = [];
-    private plugins: any[] = [];
+export class Group<Root extends string = '/'> {
+    // @ts-ignore
+    record: any[][] = [];
+    wsRecord: any[][] = [];
+    plugins: any[] = [];
 
     /**
      * Handle WebSocket
      */
-    ws<D extends Dict<any> = {}, T extends string = string>(path: T, handler: WebSocketHandler<WSContext<ConcatPath<R, T>> & D>) {
+    ws<D extends Dict<any> = {}, T extends string = string>(path: T, handler: WebSocketHandler<WSContext<ConcatPath<Root, T>> & D>) {
         // @ts-ignore
         path = convert(path);
 
@@ -30,7 +46,7 @@ export class Group<R extends string = '/'> {
      * @param root 
      */
     // @ts-ignore
-    constructor(public readonly root: R = '/') {
+    constructor(public readonly root: Root = '/') {
         if (root !== '/' && root.endsWith('/'))
             // @ts-ignore
             root = root.slice(0, -1);
@@ -43,6 +59,7 @@ export class Group<R extends string = '/'> {
             const args = [method, path, handler] as any[];
             if (opts) args.push(opts);
 
+            // @ts-ignore
             this.record.push(args);
             return this;
         }
@@ -64,6 +81,7 @@ export class Group<R extends string = '/'> {
             path = this.root + path;
         path = convert(path);
 
+        // @ts-ignore
         this.record.push(['WRAP', path, handler]);
         return this;
     }

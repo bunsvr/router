@@ -416,6 +416,10 @@ function optimize() {
     Request.prototype.path = 0;
     // @ts-ignore
     Request.prototype.query = 0;
+    // @ts-ignore
+    Request.prototype.params = null;
+    // @ts-ignore
+    Request.prototype.data = null;
 }
 
 /**
