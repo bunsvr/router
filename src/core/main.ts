@@ -68,9 +68,14 @@ export class Router {
     wrap(path: string): this;
 
     /**
+     * Add a response wrapper
+     */
+    wrap(path: string, handler: ResponseWrap): this;
+
+    /**
      * Add a response wrapper for subroutes of path.
      *
-     * Wrap will not wrap reject responses
+     * Wrap will wrap reject responses
      */
     wrap(path: string, handler: ResponseWrap = 'default') {
         if (typeof handler === 'string')

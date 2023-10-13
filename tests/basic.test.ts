@@ -30,10 +30,10 @@ const app = router()
     .get('/str/4', c => {
         c.set = { status: 418 };
         return 'I\'m a teapot';
-    }, { wrap: 'send' })
+    })
 
     .get('/str/5', macro(10))
-    .wrap('/str')
+    .wrap('/str', 'send')
 
     .use(404)
     .use(400, (e, c) => new Response(c.url + ': ' + e, invalidBody));

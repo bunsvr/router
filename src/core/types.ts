@@ -29,17 +29,18 @@ export const wrap = {
     /**
      * Send all info in ctx
      */
-    send: (d: ResponseBody, ctx: Context) => 'set' in ctx
-        ? new Response(d, ctx.set)
-        : new Response(d),
+    send: (d: ResponseBody, ctx: Context) => ctx.set === null
+        ? new Response(d)
+        : new Response(d, ctx.set),
+
     /**
      * Send all info in ctx and the response as json
      */
     sendJSON: (d: any, ctx: Context) => d === null
         ? new Response(null, badReq)
-        : ('set' in ctx
-            ? new Response(stringify(d), modify(ctx.set))
-            : new Response(stringify(d), jsonHeader)
+        : (ctx.set === null
+            ? new Response(stringify(d), jsonHeader)
+            : new Response(stringify(d), modify(ctx.set))
         ),
 };
 
