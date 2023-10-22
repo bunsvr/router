@@ -21,7 +21,7 @@ export const wrap = {
     /**
      * Wrap the response 
      */
-    default: (d: ResponseBody) => new Response(d),
+    plain: (d: ResponseBody) => new Response(d),
     /**
      * Wrap the JSON response with `Response.json`
      */
@@ -300,7 +300,7 @@ export interface RouteOptions {
      * Specify a wrapper.
      * If set to false, the parent wrapper will be disabled
      */
-    wrap?: Wrapper | keyof typeof wrap | true | false;
+    wrap?: ResponseWrap;
 
     /**
      * Whether to force chain wrap with `then`
@@ -308,7 +308,7 @@ export interface RouteOptions {
     chain?: boolean;
 }
 
-export type ResponseWrap = keyof typeof wrap | Wrapper;
+export type ResponseWrap = keyof typeof wrap | Wrapper | true | false;
 
 // Behave like a post middleware
 export interface Wrapper {

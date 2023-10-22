@@ -77,7 +77,7 @@ export class Router {
      *
      * Wrap will wrap reject responses
      */
-    wrap(path: string, handler: ResponseWrap = 'default') {
+    wrap(path: string, handler: ResponseWrap = 'plain') {
         if (typeof handler === 'string')
             handler = wrap[handler];
 

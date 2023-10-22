@@ -73,7 +73,7 @@ export class Group<Root extends string = '/'> {
     /**
      * Wrap the response
      */
-    wrap(path: string, handler: ResponseWrap = 'default') {
+    wrap(path: string, handler: ResponseWrap = 'plain') {
         if (typeof handler === 'string')
             handler = wrap[handler];
 
