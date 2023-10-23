@@ -6,7 +6,10 @@ import {
 import { jsonHeader } from './router/compiler/constants';
 import type Router from './main';
 
-const { stringify } = JSON, badReq = { status: 400 }, jsonSetHeaders = { 'Content-Type': 'application/json' };
+const { stringify } = JSON,
+    { file } = globalThis.Bun ?? {},
+    badReq = { status: 400 },
+    jsonSetHeaders = { 'Content-Type': 'application/json' };
 
 function modify(set: ContextSet) {
     if ('headers' in set) {
@@ -18,6 +21,10 @@ function modify(set: ContextSet) {
 }
 
 export const wrap = {
+    /**
+     * Send a file path
+     */
+    path: (d: string | URL | null) => d === null ? null : new Response(file(d)),
     /**
      * Wrap the response 
      */
