@@ -61,7 +61,7 @@ export function storeCheck(fn: Handler, handlers: HandlerDetails, wrapper: Wrapp
     // Specific wrapper
     if (fn.wrap) {
         if (fn.wrap === true)
-            fn.wrap = wrap.default;
+            fn.wrap = wrap.plain;
         else if (typeof fn.wrap === 'string')
             fn.wrap = wrap[fn.wrap];
 
