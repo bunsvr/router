@@ -1,5 +1,5 @@
 import { mock, router, ws } from '..';
-import { test } from 'bun:test';
+import { test, expect } from 'bun:test';
 
 const route = ws.route({
     message(ws) {
@@ -16,6 +16,9 @@ const client = mock(app);
 test('WS', done => {
     const socket = client.ws('/');
 
-    socket.addEventListener('open', () => socket.send(''));
-    socket.addEventListener('message', m => m.data === 'Hi' ? done() : done(m.data));
+    socket.onopen = () => socket.send('');
+    socket.onmessage = m => {
+        expect(m.data).toBe('Hi');
+        done();
+    }
 });
