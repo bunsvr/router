@@ -54,7 +54,11 @@ export function getStoreCall(store: FunctionStore, handlers: HandlerDetails, wra
  * Run the store
  */
 export function storeCheck(fn: Handler, handlers: HandlerDetails, wrapper: Wrapper) {
-    if (typeof fn === 'number') return getWSHandler(fn, handlers);
+    switch (typeof fn) {
+        case 'number': return getWSHandler(fn, handlers);
+        case 'string': return fn;
+    }
+
     // Ignore wrappers for macros
     if (fn.macro) return getMacroHandler(fn);
 

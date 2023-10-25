@@ -329,7 +329,7 @@ export interface Wrapper {
 
 export type HttpMethod = 'get' | 'post' | 'put' | 'delete' | 'connect' | 'options' | 'trace' | 'patch' | 'all' | 'guard' | 'reject';
 export type RouterMethods<R extends string> = {
-    [K in HttpMethod]: <T extends string, O extends RouteOptions>(
+    [K in HttpMethod]: <T extends string, O extends RouteOptions | string>(
         path: T, handler: O extends { body: infer B }
             ? (
                 B extends BodyParser

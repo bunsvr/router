@@ -7,7 +7,7 @@ import { convert, methodsLowerCase as methods } from "../core/constants";
 import type { WebSocketHandler } from "bun";
 
 export type GroupMethods<Root extends string> = {
-    [K in HttpMethod]: <T extends string, O extends RouteOptions>(
+    [K in HttpMethod]: <T extends string, O extends RouteOptions | string>(
         path: T, handler: O extends { body: infer B }
             ? (
                 B extends BodyParser

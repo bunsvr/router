@@ -53,7 +53,8 @@ export namespace ws {
                 ? (c: Request) => server.upgrade(c, defOpts)
                 : Function('k', 's', `var i=k.data,h=i.${wsHandlerDataKey};`
                     + `return (c,o)=>{`
-                    + `if('data'in o)o.data.${wsHandlerDataKey}=h;`
+                    + `if(o===undefined)o=k;`
+                    + `else if('data'in o)o.data.${wsHandlerDataKey}=h;`
                     + `else o.data=i;`
                     + `return s.upgrade(c,o)}`
                 )(defOpts, server);
