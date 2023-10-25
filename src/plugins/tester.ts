@@ -30,16 +30,16 @@ export interface MockOptions {
  * Create a tester for the current router
  */
 export function mock(app: Router, opts: MockOptions = {}) {
-    app.listen();
+    if (!app.listening) app.listen();
     const { logLevel: logLvl = 0 } = opts, base = app.details.base;
 
     return {
         /**
          * Create a WS client based on the path
          */
-        ws(...args: ConstructorParameters<typeof WebSocket>) {
-            args[0] = base + args[0];
-            return new WebSocket(...args);
+        ws(path: string | URL, opts?: ConstructorParameters<typeof WebSocket>[1]) {
+            path = base + path;
+            return new WebSocket(path, opts);
         },
         /**
          * Mock the current fetch handler.

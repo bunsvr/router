@@ -1,4 +1,4 @@
-import { type WebSocketHandler } from 'bun';
+import type { Server, WebSocketHandler } from 'bun';
 import type {
     RouterMethods, FetchMeta, Handler, WSContext, ServeOptions,
     BodyHandler, ErrorHandler, RouterMeta, RouterPlugin, ResponseWrap
@@ -9,7 +9,7 @@ import compileRouter from './router/compiler';
 import { convert, methodsLowerCase as methods } from './constants';
 import {
     requestObjectName, urlStartIndex, requestQueryIndex,
-    serverErrorHandler, requestURL, appDetail
+    serverErrorHandler, requestURL, appDetail, wsHandlerDataKey
 } from './router/compiler/constants';
 
 export interface Router extends ServeOptions, RouterMethods<'/'> { };
@@ -310,12 +310,10 @@ export class Router {
         }
 
         // Assign websocket
-        if (this.webSocketHandlers.length !== 0) {
-            this.websocket ||= { message: createWSHandler('message') };
-            this.websocket.open ||= createWSHandler('open');
-            this.websocket.drain ||= createWSHandler('drain');
-            this.websocket.close ||= createWSHandler('close');
-        }
+        this.websocket ||= { message: createWSHandler('message') };
+        this.websocket.open ||= createWSHandler('open');
+        this.websocket.drain ||= createWSHandler('drain');
+        this.websocket.close ||= createWSHandler('close');
 
         // Compose the router
         const res = compileRouter(
@@ -353,29 +351,52 @@ export class Router {
     listen(gc: boolean = true) {
         if (gc) Bun.gc(true);
 
-        const { fetch, ...rest } = this,
-            s = Bun.serve({ ...rest, fetch });
+        const { fetch, ...rest } = this, s = Bun.serve({ ...rest, fetch });
 
         // Additional details
-        this.details.https = !!(this.tls || this.ca || this.key);
-        this.details.defaultPort = s.port === 80 || s.port === 443;
-        this.details.host = `${s.hostname + (this.details.defaultPort ? '' : ':' + s.port)}`;
-        this.details.base = `http${this.details.https ? 's' : ''}://${this.details.host}`;
+        this.details.https = !!(this.tls || this.ca || this.key || this.cert);
+        this.details.defaultPort = isDefaultPort(s);
+
+        this.details.host = s.hostname + (this.details.defaultPort ? '' : ':' + s.port);
+        this.details.base = 'http' + (this.details.https ? 's' : '') + '://' + this.details.host;
+
         this.details.dev = s.development;
         this.details.server = s;
-        this.details.router = this;
 
         // Log additional info
         console.info(`Started an HTTP server at ${this.details.base} in ${s.development ? 'development' : 'production'} mode`);
+        // @ts-ignore
+        this.listening = true;
         return this;
     }
 
-    // Only available when `listen()` is used.
-    // @ts-ignore
-    details: RouterMeta = {};
+    // @ts-ignore Only available when `listen()` is used.
+    details: RouterMeta = {
+        https: false,
+        defaultPort: false,
+        host: '',
+        base: '',
+        dev: false,
+        server: null,
+        router: this
+    };
+
+    /**
+     * Check whether server is listening
+     */
+    readonly listening = false;
 }
 
-export function macro<T extends string>(fn: Handler<T> | string | number | boolean | null | undefined | object): Handler {
+export function isDefaultPort(s: Server) {
+    switch (s.port) {
+        case 80:
+        case 443:
+            return true;
+        default: return false;
+    }
+}
+
+export function macro<T extends string>(fn?: Handler<T> | string | number | boolean | null | undefined | object): Handler {
     if (fn === null || fn === undefined)
         fn = Function('return()=>new Response')() as Handler;
     else if (typeof fn === 'string')
@@ -383,18 +404,16 @@ export function macro<T extends string>(fn: Handler<T> | string | number | boole
     else if (typeof fn !== 'function')
         fn = Function(`return()=>new Response('${JSON.stringify(fn)}')`)() as Handler;
 
-    // @ts-ignore
-    fn.macro = true;
-    // @ts-ignore
-    return fn;
+    (fn as Handler).macro = true;
+    return fn as Handler;
 }
 
 function createWSHandler(name: string) {
     const argsList = 'w' + (name === 'close' ? ',c,m' : '');
     // Optimization: message handler should exist
     return Function(name === 'message'
-        ? 'return (w,m)=>{w.data._.message(w,m)}'
-        : `return (${argsList})=>{if('${name}'in w.data._)w.data._.${name}(${argsList})}`
+        ? `return (w,m)=>{w.data.${wsHandlerDataKey}.message(w,m)}`
+        : `return (${argsList})=>{if('${name}'in w.data.${wsHandlerDataKey})w.data.${wsHandlerDataKey}.${name}(${argsList})}`
     )();
 }
 

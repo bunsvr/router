@@ -17,6 +17,7 @@ export const internalPrefix = '_',
     // Request related
     requestObjectName = 'c',
     cachedMethod = 'method',
+    wsHandlerDataKey = '_',
 
     // Request properties
     requestObjectPrefix = requestObjectName + '.',

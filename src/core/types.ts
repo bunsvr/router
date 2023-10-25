@@ -347,6 +347,11 @@ export interface Plugin {
     (app: Router): Router | void | Promise<Router | void>
 }
 
-export type RouterPlugin = Plugin | {
+/**
+ * An object as a plugin
+ */
+export interface PluginObject {
     plugin: Plugin;
 }
+
+export type RouterPlugin = Plugin | PluginObject;
