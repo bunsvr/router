@@ -5,10 +5,9 @@ const route = ws.route({
     message(ws) {
         ws.send('Hi');
     }
-}, true), app = router()
+}, true), app = router(route)
     .set('port', 3002)
     .all('/', c => route.upgrade(c))
-    .plug(route)
     .listen();
 
 const client = mock(app);
