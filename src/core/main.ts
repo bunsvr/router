@@ -1,6 +1,6 @@
-import type { Server, WebSocketHandler } from 'bun';
+import type { Server } from 'bun';
 import type {
-    RouterMethods, FetchMeta, Handler, WSContext, ServeOptions,
+    RouterMethods, FetchMeta, Handler, ServeOptions,
     BodyHandler, ErrorHandler, RouterMeta, RouterPlugin, ResponseWrap
 } from './types';
 import { wrap } from './types';
@@ -100,21 +100,6 @@ export class Router {
             return this;
         }
         throw new Error('Origin pathname not registered yet!');
-    }
-
-    // Handle websocket
-    private webSocketHandlers: WebSocketHandler[] = [];
-    /**
-     * Handling WebSocket connections. Only works in Bun 
-     * @param path 
-     * @param handler 
-     */
-    ws<D extends Dict<any> = Dict<any>, T extends string = string>(path: T, handler: WebSocketHandler<WSContext<T> & D>) {
-        // @ts-ignore Should use macros instead
-        this.get(path, this.webSocketHandlers.length);
-        this.webSocketHandlers.push(handler);
-
-        return this;
     }
 
     /**
@@ -242,23 +227,6 @@ export class Router {
     }
 
     /**
-     * All resolving plugin
-     */
-    readonly plugins: Promise<any>[] = [];
-
-    private plugOne(plugin: RouterPlugin) {
-        // Ignore null and undefined plugins
-        if (!plugin) return;
-
-        const res = typeof plugin === 'object'
-            ? plugin.plugin(this)
-            : plugin(this);
-
-        // Add to queue if not resolved
-        if (res instanceof Promise) this.plugins.push(res);
-    }
-
-    /**
      * Set a property
      */
     set<K extends keyof this>(v: K, value: this[K]) {
@@ -267,21 +235,39 @@ export class Router {
     }
 
     /**
+     * All resolving plugin.
+     */
+    readonly resolvingPlugins: Promise<any>[] = [];
+    readonly afterListenPlugins: any[] = [];
+
+    /**
      * Add plugins 
      */
     plug(...plugins: RouterPlugin[]) {
-        let p: any;
-        for (p of plugins) this.plugOne(p);
+        let p: RouterPlugin, res: any;
+        for (p of plugins) {
+            if (!p) continue;
+
+            // Put into a list to register later
+            if (p.afterListen) {
+                this.afterListenPlugins.push(p);
+                continue;
+            }
+
+            res = typeof p === 'object' ? p.plugin(this) : p(this);
+            if (res instanceof Promise)
+                this.resolvingPlugins.push(res);
+        }
+
         return this;
     }
 
     /**
      * Resolve all loading plugins.
-     * Call this before serving.
      */
     resolve() {
-        if (this.plugins.length !== 0)
-            return Promise.allSettled(this.plugins);
+        return this.resolvingPlugins.length === 0 ? null
+            : Promise.allSettled(this.resolvingPlugins);
     }
 
     /**
@@ -317,7 +303,7 @@ export class Router {
 
         // Compose the router
         const res = compileRouter(
-            this.router, this.webSocketHandlers,
+            this.router,
             this.base ? this.base.length + 1 : urlStartIndex,
             this.fn400, this.fn404
         );
@@ -345,6 +331,15 @@ export class Router {
         return buildFetch(this.meta);
     };
 
+    private async loadAfterListenPlugins() {
+        let p: RouterPlugin, res: any;
+
+        for (p of this.afterListenPlugins) {
+            res = typeof p === 'object' ? p.plugin(this) : p(this);
+            if (res instanceof Promise) res = await res;
+        }
+    }
+
     /**
      * Start an HTTP server at specified port (defaults to `3000`) and host (defaults to `127.0.0.1`).
      */
@@ -363,10 +358,14 @@ export class Router {
         this.details.dev = s.development;
         this.details.server = s;
 
-        // Log additional info
-        console.info(`Started an HTTP server at ${this.details.base} in ${s.development ? 'development' : 'production'} mode`);
         // @ts-ignore
         this.listening = true;
+
+        if (this.afterListenPlugins.length !== 0)
+            this.loadAfterListenPlugins();
+
+        // Log additional info
+        console.info(`Started an HTTP server at ${this.details.base} in ${s.development ? 'development' : 'production'} mode`);
         return this;
     }
 

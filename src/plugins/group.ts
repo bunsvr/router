@@ -1,10 +1,9 @@
 import { Router, wrap } from "../core/main";
 import type {
     ConcatPath, Handler, ResponseWrap, RouterPlugin,
-    WSContext, HttpMethod, BodyParser, RouteOptions
+    HttpMethod, BodyParser, RouteOptions
 } from "../core/types";
 import { convert, methodsLowerCase as methods } from "../core/constants";
-import type { WebSocketHandler } from "bun";
 
 export type GroupMethods<Root extends string> = {
     [K in HttpMethod]: <T extends string, O extends RouteOptions | string>(
@@ -26,20 +25,7 @@ export interface Group<Root extends string> extends GroupMethods<Root> { }
 export class Group<Root extends string = '/'> {
     // @ts-ignore
     record: any[][] = [];
-    wsRecord: any[][] = [];
     plugins: any[] = [];
-
-    /**
-     * Handle WebSocket
-     */
-    ws<D extends Dict<any> = {}, T extends string = string>(path: T, handler: WebSocketHandler<WSContext<ConcatPath<Root, T>> & D>) {
-        // @ts-ignore
-        path = convert(path);
-
-        // Add a WebSocket handler
-        this.wsRecord.push([path, handler]);
-        return this;
-    }
 
     /**
      * Create a new routes group
@@ -119,10 +105,6 @@ export class Group<Root extends string = '/'> {
 
         for (item of this.record) app[item[0]](
             this.fixPath(item[1]), item[2]
-        );
-
-        for (item of this.wsRecord) app.ws(
-            this.fixPath(item[0]), item[1]
         );
     }
 }

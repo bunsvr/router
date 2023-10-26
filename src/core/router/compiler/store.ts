@@ -2,7 +2,7 @@ import { FunctionStore, HandlerDetails } from '../types';
 import { Wrapper, Handler, wrap } from '../../types';
 import { handlerPrefix, requestObjectPrefix, requestParsedBody, cachedMethod } from './constants';
 import { initWrapper, checkWrap, wrapAsync } from './wrapper';
-import { getWSHandler, getMacroHandler } from './getHandler';
+import { getMacroHandler } from './getHandler';
 import { checkArgs } from './resolveArgs';
 
 /**
@@ -54,10 +54,7 @@ export function getStoreCall(store: FunctionStore, handlers: HandlerDetails, wra
  * Run the store
  */
 export function storeCheck(fn: Handler, handlers: HandlerDetails, wrapper: Wrapper) {
-    switch (typeof fn) {
-        case 'number': return getWSHandler(fn, handlers);
-        case 'string': return fn;
-    }
+    if (typeof fn === 'string') return fn;
 
     // Ignore wrappers for macros
     if (fn.macro) return getMacroHandler(fn);

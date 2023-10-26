@@ -3,7 +3,6 @@ export const internalPrefix = '_',
     handlerPrefix = internalPrefix + 'c',
     rejectPrefix = internalPrefix + 'r',
     guardPrefix = internalPrefix + 'g',
-    wsPrefix = internalPrefix + 'w',
     wrapperPrefix = internalPrefix + 'd',
 
     // Special handlers and props

@@ -9,8 +9,7 @@ import { checkArgs } from "./resolveArgs";
 import { compileNode } from './node';
 
 export default function compileRouter(
-    router: Radx, __ws: any[],
-    startIndex: number | string, fn400: any, fn404: any
+    router: Radx, startIndex: number | string, fn400: any, fn404: any
 ) {
     if (startIndex === 0) throw new Error('WTF');
 
@@ -20,7 +19,7 @@ export default function compileRouter(
         __pathStr: requestURL, __wrapperIndex: 0,
         __pathLen: requestQueryIndex,
         __rejectIndex: 0, __catchBody: '',
-        __ws, __guardIndex: 0
+        __guardIndex: 0
     };
 
     // Fn 400 modify the catch body

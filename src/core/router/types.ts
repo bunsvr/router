@@ -24,7 +24,6 @@ export interface HandlerDetails extends Dict<any> {
     __catchBody: string,
     __guardIndex: number,
     __wrapperIndex: number,
-    __ws: any[]
 }
 
 export type FunctionStore = Dict<Handler<any>>;

@@ -1,18 +1,4 @@
-import { HandlerDetails } from '../types';
 import { Handler } from '../../types';
-import {
-    appDetail, debugServer, requestObjectName,
-    wsHandlerDataKey, wsPrefix
-} from './constants';
-
-/**
- * Return the literal for WS upgrade
- */
-export function getWSHandler(fnIndex: number, handlers: HandlerDetails) {
-    const name = wsPrefix + fnIndex;
-    handlers[name] = handlers.__ws[fnIndex];
-    return `return ${debugServer}.upgrade(${requestObjectName},{data:{${wsHandlerDataKey}:${name},ctx:${requestObjectName},meta:${appDetail}}});`;
-}
 
 /**
  * Get the function body of a macro

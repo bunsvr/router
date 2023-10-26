@@ -77,5 +77,8 @@ export namespace ws {
             this.meta = app.details;
             return app;
         }
+
+        // This plugin is registered after listening
+        afterListen = true;
     }
 }

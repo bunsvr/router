@@ -139,13 +139,31 @@ export interface Context<D = any, P extends string = string> extends Request {
     set: ContextSet;
 }
 
+/**
+ * Common status code
+ */
+export type StatusCode =
+    // 1xx 
+    100 | 101 | 102 | 103
+    // 2xx
+    | 200 | 201 | 202 | 203 | 204 | 205 | 206
+    | 207 | 208 | 226
+    // 3xx
+    | 300 | 301 | 302 | 303 | 304 | 307 | 308
+    // 4xx
+    | 400 | 401 | 402 | 403 | 404 | 405 | 406 | 407
+    | 408 | 409 | 410 | 411 | 412 | 413 | 414 | 415
+    | 416 | 417 | 418 | 422 | 423 | 424 | 425
+    | 426 | 428 | 429 | 431 | 451
+    // 5xx
+    | 500 | 501 | 502 | 503 | 504 | 505 | 506 | 507
+    | 508 | 510 | 511
+    // Other 
+    | (number & {}) | (bigint & {});
+
 export interface ContextSet extends ResponseInit {
-    /**
-     * Set your custom heading here for response.
-     *
-     * This should be used with `guard` and `wrap` to add custom headers.
-     */
     headers?: ContextHeaders;
+    status?: StatusCode;
 }
 
 /**
@@ -344,7 +362,12 @@ export type RouterMethods<R extends string> = {
  * Specific plugin for router
  */
 export interface Plugin {
-    (app: Router): Router | void | Promise<Router | void>
+    (app: Router): Router | void | Promise<Router | void>;
+
+    /**
+     * Only register the plugin after start listening 
+     */
+    afterListen?: boolean;
 }
 
 /**
@@ -352,6 +375,11 @@ export interface Plugin {
  */
 export interface PluginObject {
     plugin: Plugin;
+
+    /**
+     * Only register the plugin after start listening
+     */
+    afterListen?: boolean;
 }
 
 export type RouterPlugin = Plugin | PluginObject;

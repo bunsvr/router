@@ -8,13 +8,8 @@ const route = ws.route({
 }, true), app = router()
     .set('port', 3002)
     .all('/', c => route.upgrade(c))
-    .ws('/ws', {
-        message(ws) {
-            ws.send('Hello');
-        }
-    })
-    .listen()
-    .plug(route);
+    .plug(route)
+    .listen();
 
 const client = mock(app);
 
@@ -28,12 +23,4 @@ test('Dynamic WS', done => {
     };
 });
 
-test('Static WS', done => {
-    const socket = client.ws('/ws');
 
-    socket.onopen = () => socket.send('');
-    socket.onmessage = m => {
-        expect(m.data).toBe('Hello');
-        done();
-    };
-});
