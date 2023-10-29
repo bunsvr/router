@@ -20,6 +20,25 @@ function plus(num: string | number, val: number) {
     return slices[0] + '+' + (val + total);
 }
 
+export function checkPath(
+    handlers: HandlerDetails,
+    part: string, fullPartPrevLen: string | number,
+    currentPathLen: string | number
+) {
+    if (part.length < 15) {
+        let result = '';
+
+        for (var i = 0; i < part.length; ++i) {
+            result += `if(${handlers.__pathStr}.charCodeAt(${fullPartPrevLen})===${part.charCodeAt(i)})`;
+            fullPartPrevLen = plus(fullPartPrevLen, 1);
+        }
+
+        return result;
+    }
+
+    return `if(${handlers.__pathStr}.substring(${fullPartPrevLen},${currentPathLen})==='${part}')`;
+}
+
 export function compileNode(
     node: Node<any>,
     isNormalInert: boolean,
@@ -36,18 +55,13 @@ export function compileNode(
     }
 
     const currentPathLen = plus(fullPartPrevLen, node.part.length);
-    let str = '', queue = '',
+    let str = node.part.length === 0
+        ? '' : checkPath(
+            handlers, node.part,
+            fullPartPrevLen, currentPathLen
+        ) + '{', queue = '',
         // For efficient storing
         iter: any, res: any;
-
-    if (node.part.length === 1)
-        str = `if(${handlers.__pathStr}.charCodeAt(${fullPartPrevLen})===${node.part.charCodeAt(0)}){`;
-    else if (node.part.length !== 0) {
-        str += 'if(' + (node.part.length === 1
-            ? `${handlers.__pathStr}.charCodeAt(${fullPartPrevLen})===${node.part.charCodeAt(0)}`
-            : `${handlers.__pathStr}.substring(${fullPartPrevLen},${currentPathLen})==='${node.part}'`
-        ) + '){';
-    }
 
     // Check store, inert, wilcard and params
     if (node.store !== null) {

@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import { Group, macro, mock, router } from "..";
+import { Group, mock, router, route } from "..";
 
-const a = new Group('/a').get('/', macro('Hi')),
+const a = route.get('/a', () => 'Hi', { wrap: 'send' }),
     b = new Group('/b').plug(a),
     c = new Group('/c').plug(b),
     app = router(c).set('port', 3001).use(404);

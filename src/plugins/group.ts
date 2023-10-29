@@ -19,11 +19,15 @@ export type GroupMethods<Root extends string> = {
 
 export interface Group<Root extends string> extends GroupMethods<Root> { }
 
+// @ts-ignore Shorthand
+export const route: GroupMethods<'/'> = {};
+for (const method of methods)
+    route[method] = (...args: any[]) => new Group()[method](...args);
+
 /**
  * A routes group. Can be used as a plugin
  */
 export class Group<Root extends string = '/'> {
-    // @ts-ignore
     record: any[][] = [];
     plugins: any[] = [];
 
@@ -42,10 +46,9 @@ export class Group<Root extends string = '/'> {
             // Special cases
             path = convert(path);
 
-            const args = [method, path, handler] as any[];
+            const args = [method, path, handler];
             if (opts) args.push(opts);
 
-            // @ts-ignore
             this.record.push(args);
             return this;
         }
@@ -67,8 +70,7 @@ export class Group<Root extends string = '/'> {
             path = this.root + path;
         path = convert(path);
 
-        // @ts-ignore
-        this.record.push(['WRAP', path, handler]);
+        this.record.push(['wrap', path, handler]);
         return this;
     }
 
@@ -92,6 +94,7 @@ export class Group<Root extends string = '/'> {
         let item: any;
 
         for (item of this.plugins) {
+            // Set the correct root
             if (item instanceof Group) {
                 if (item.root === '/')
                     item.root = this.root;
@@ -104,7 +107,7 @@ export class Group<Root extends string = '/'> {
         }
 
         for (item of this.record) app[item[0]](
-            this.fixPath(item[1]), item[2]
+            this.fixPath(item[1]), ...item.slice(2)
         );
     }
 }
